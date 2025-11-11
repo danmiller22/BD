@@ -16,10 +16,11 @@
     @keyframes fade{to{opacity:1;transform:none}}
     .kpi{font-size:1.875rem;line-height:2.25rem}
     .sub{color:#cbd5e1}
+    .shadow-soft{box-shadow:0 15px 40px rgba(0,0,0,.35)}
   </style>
 </head>
 <body>
-  <div class="w-full px-6 md:px-10 py-8 md:py-12">
+  <div class="w-full max-w-[1400px] mx-auto px-6 md:px-10 py-8 md:py-12">
     <header class="mb-8 md:mb-12 fade">
       <h1 class="text-2xl md:text-4xl title">US Team Fleet</h1>
     </header>
@@ -28,46 +29,46 @@
 
     <div id="content" class="space-y-8 hidden">
       <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div class="glass card fade">
+        <div class="glass card fade shadow-soft">
           <div class="text-sm text-white/70">Total Spend</div>
           <div id="kpi-spend" class="kpi mt-1">—</div>
           <div class="text-xs sub mt-1">Sum of all jobs</div>
         </div>
-        <div class="glass card fade">
+        <div class="glass card fade shadow-soft">
           <div class="text-sm text-white/70">Jobs Closed</div>
           <div id="kpi-closed" class="kpi mt-1">—</div>
           <div class="text-xs sub mt-1">Completed work orders</div>
         </div>
-        <div class="glass card fade">
+        <div class="glass card fade shadow-soft">
           <div class="text-sm text-white/70">Jobs Open</div>
           <div id="kpi-open" class="kpi mt-1">—</div>
           <div class="text-xs sub mt-1">Active or pending</div>
         </div>
       </div>
 
-      <div class="glass card fade">
+      <div class="glass card fade shadow-soft">
         <div class="mb-4 text-lg">Monthly Spend</div>
-        <canvas id="chart-month" height="120"></canvas>
+        <div style="height:280px"><canvas id="chart-month"></canvas></div>
       </div>
 
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div class="glass card fade">
+        <div class="glass card fade shadow-soft">
           <div class="mb-4 text-lg">Spend by Category</div>
-          <canvas id="chart-cat" height="220"></canvas>
+          <div style="height:280px"><canvas id="chart-cat"></canvas></div>
         </div>
-        <div class="glass card fade lg:col-span-2">
+        <div class="glass card fade lg:col-span-2 shadow-soft">
           <div class="mb-4 text-lg">Top Vendors</div>
-          <canvas id="chart-vendor" height="220"></canvas>
+          <div style="height:280px"><canvas id="chart-vendor"></canvas></div>
         </div>
       </div>
 
-      <div class="glass card fade">
+      <div class="glass card fade shadow-soft">
         <div class="mb-4 text-lg">Most Frequent Units (Breakdowns)</div>
-        <canvas id="chart-unit" height="220"></canvas>
+        <div style="height:280px"><canvas id="chart-unit"></canvas></div>
       </div>
 
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div class="glass card fade">
+        <div class="glass card fade shadow-soft">
           <div class="mb-4 text-lg">Open Reports</div>
           <div class="overflow-x-auto">
             <table class="min-w-full text-sm">
@@ -87,7 +88,7 @@
           </div>
         </div>
 
-        <div class="glass card fade">
+        <div class="glass card fade shadow-soft">
           <div class="mb-4 text-lg">Closed Reports</div>
           <div class="overflow-x-auto">
             <table class="min-w-full text-sm">
@@ -192,8 +193,8 @@ const niceMonth = key => { if(key==="Unknown") return key; const [y,m]=key.split
         tooltip: { backgroundColor: "rgba(12,16,27,0.95)", padding: 12, titleColor:"#E5E7EB", bodyColor:"#E5E7EB", borderWidth:0, borderColor:"transparent" }
       },
       scales: {
-        x: { grid: { display:false }, ticks: { color:"#D1D5DB" } },
-        y: { grid: { color:"rgba(255,255,255,0.07)" }, ticks: { color:"#D1D5DB" } }
+        x: { grid: { color:"rgba(255,255,255,0.06)" }, ticks: { color:"#D1D5DB", maxRotation:24, minRotation:24 } },
+        y: { beginAtZero:true, grid: { color:"rgba(255,255,255,0.06)" }, ticks: { color:"#D1D5DB" } }
       }
     };
 
@@ -202,8 +203,11 @@ const niceMonth = key => { if(key==="Unknown") return key; const [y,m]=key.split
       data: {
         labels: monthSeries.map(x=>x.label),
         datasets: [
-          { label:"Spend", data: monthSeries.map(x=>x.spend),
-            borderColor:"#93C5FD", fill:true,
+          {
+            label:"Spend",
+            data: monthSeries.map(x=>x.spend),
+            borderColor:"#93C5FD",
+            fill:true,
             backgroundColor:(ctx)=> {
               const {chart:{ctx:c,chartArea}}=ctx;
               if(!chartArea) return "rgba(147,197,253,0.15)";
@@ -212,22 +216,27 @@ const niceMonth = key => { if(key==="Unknown") return key; const [y,m]=key.split
               g.addColorStop(1,"rgba(96,165,250,0.05)");
               return g;
             },
-            tension:0.35, pointRadius:0 }
-          ,
-          { label:"Jobs", data: monthSeries.map(x=>x.jobs),
-            borderColor:"#A7F3D0", tension:0.35, pointRadius:0 }
+            tension:0.35,
+            pointRadius: monthSeries.length<2 ? 4 : 0,   /* фикс для одного месяца */
+            pointHoverRadius:5
+          },
+          {
+            label:"Jobs",
+            data: monthSeries.map(x=>x.jobs),
+            borderColor:"#A7F3D0",
+            tension:0.35,
+            pointRadius: monthSeries.length<2 ? 4 : 0
+          }
         ]
       },
-      options: common
+      options: { ...common, spanGaps:true }
     });
 
     new Chart(document.getElementById('chart-cat'), {
       type: "doughnut",
       data: {
         labels: catSeries.map(x=>x.label),
-        datasets: [{ data: catSeries.map(x=>x.value),
-          borderWidth:0,
-          backgroundColor: catSeries.map((_,i)=>`hsl(${200+i*14} 80% 60%)`) }]
+        datasets: [{ data: catSeries.map(x=>x.value), borderWidth:0, backgroundColor: catSeries.map((_,i)=>`hsl(${200+i*14} 80% 60%)`) }]
       },
       options: { ...common, scales: undefined, cutout: "62%" }
     });
@@ -238,7 +247,7 @@ const niceMonth = key => { if(key==="Unknown") return key; const [y,m]=key.split
         labels: vendorSeries.map(x=>x.label),
         datasets: [{ label:"Spend", data: vendorSeries.map(x=>x.value), borderColor:"#7DD3FC", tension:0.35, pointRadius:3 }]
       },
-      options: { ...common, scales: { x:{ grid:{display:false}, ticks:{ color:"#D1D5DB", maxRotation:30, minRotation:30 } }, y: common.scales.y } }
+      options: common
     });
 
     new Chart(document.getElementById('chart-unit'), {
@@ -247,7 +256,7 @@ const niceMonth = key => { if(key==="Unknown") return key; const [y,m]=key.split
         labels: unitSeries.map(x=>x.label),
         datasets: [{ label:"Breakdowns", data: unitSeries.map(x=>x.value), backgroundColor:"#93C5FD", borderRadius:10 }]
       },
-      options: { ...common, scales: { x:{ grid:{display:false}, ticks:{ color:"#D1D5DB", maxRotation:30, minRotation:30 } }, y: common.scales.y } }
+      options: common
     });
 
     function fillTable(tbodyId, list){
