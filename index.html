@@ -30,10 +30,10 @@
   @media (min-height:900px){ .chart-wrap{height:360px} }
   canvas{display:block;width:100%!important;height:100%!important}
 
-  /* Анимации появления */
-  .reveal{opacity:0;transform:translateY(14px) scale(.98);filter:blur(2px)}
+  /* Плавные появления без blur */
+  .reveal{opacity:0;transform:translateY(14px) scale(.98)}
   .reveal.show{animation:reveal .7s cubic-bezier(.22,1,.36,1) forwards}
-  @keyframes reveal{to{opacity:1;transform:none;filter:none}}
+  @keyframes reveal{to{opacity:1;transform:none}}
 
   /* Шиммер для загрузки */
   .skeleton{position:relative;overflow:hidden}
@@ -44,12 +44,11 @@
   }
   @keyframes shimmer{to{transform:translateX(100%)}}
 
-  /* Вращающийся вход пончика */
+  /* Вход пончика */
   .spin-in{transform:rotate(-140deg) scale(.6);opacity:.0}
   .spin-in.ready{animation:spinIn 1.2s cubic-bezier(.22,1,.36,1) forwards}
   @keyframes spinIn{to{transform:none;opacity:1}}
 
-  /* Уважение reduce-motion */
   @media (prefers-reduced-motion:reduce){
     .reveal,.spin-in{animation:none !important;opacity:1;transform:none}
     .skeleton::after{display:none}
@@ -155,21 +154,14 @@ const monthKey=iso=>{const d=new Date(iso); if(isNaN(d)) return "Unknown"; retur
 const niceMonth=k=>{if(k==="Unknown")return k; const [y,m]=k.split("-"); const d=new Date(+y,+m-1,1); return d.toLocaleString(undefined,{month:"short",year:"2-digit"});};
 const reduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-/* Плавный показ секций по IntersectionObserver */
-(function mountReveals(){
-  const io = new IntersectionObserver((entries)=>{
-    for(const e of entries){ if(e.isIntersecting) e.target.classList.add('show'); }
-  },{rootMargin:"-5% 0px -10% 0px",threshold:0.1});
-  document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
-})();
+/* Глобально показать все элементы .reveal (без IO, чтобы не залипало) */
+function revealAll(){ document.querySelectorAll('.reveal').forEach(el=>el.classList.add('show')); }
+document.addEventListener('DOMContentLoaded', revealAll);
 
-/* Chart.js небольшая «неоновая» тень и сглаженные концы линий */
+/* Chart.js glow */
 const GlowShadow = {
   id:'glowShadow',
-  beforeDatasetsDraw(chart, args, opts){
-    const {ctx, chartArea} = chart; if(!chartArea) return;
-    ctx.save(); ctx.shadowColor = 'rgba(125,211,252,.35)'; ctx.shadowBlur = 14; ctx.shadowOffsetY = 0;
-  },
+  beforeDatasetsDraw(chart){ const {ctx, chartArea} = chart; if(!chartArea) return; ctx.save(); ctx.shadowColor='rgba(125,211,252,.35)'; ctx.shadowBlur=14; },
   afterDatasetsDraw(chart){ chart.ctx.restore(); }
 };
 Chart.register(GlowShadow);
@@ -177,27 +169,26 @@ Chart.defaults.elements.line.tension = 0.35;
 Chart.defaults.elements.line.borderCapStyle = 'round';
 Chart.defaults.elements.point.radius = 0;
 
-/* Утилита: безопасный градиент */
 function areaGradient(ctx, topColor, bottomColor){
   const {chart:{ctx:c, chartArea:a}} = ctx;
   if(!a) return bottomColor;
-  const g = c.createLinearGradient(0, a.top, 0, a.bottom);
+  const g=c.createLinearGradient(0,a.top,0,a.bottom);
   g.addColorStop(0, topColor); g.addColorStop(1, bottomColor);
   return g;
 }
 
-/* Fetch с таймаутом и тройным fallback */
 function timeout(ms){return new Promise((_,rej)=>setTimeout(()=>rej(new Error("Network timeout")),ms));}
 async function fetchCSV(){
+  const bust = Date.now().toString(36);
   const urls=[
-    `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${SHEET_GID}`,
-    `https://docs.google.com/spreadsheets/d/${SHEET_ID}/pub?gid=${SHEET_GID}&single=true&output=csv`,
-    `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${SHEET_GID}`
+    `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${SHEET_GID}&_=${bust}`,
+    `https://docs.google.com/spreadsheets/d/${SHEET_ID}/pub?gid=${SHEET_GID}&single=true&output=csv&_=${bust}`,
+    `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${SHEET_GID}&_=${bust}`
   ];
   for(const u of urls){
     try{
-      const res = await Promise.race([fetch(u,{mode:"cors",credentials:"omit",cache:"no-cache",referrerPolicy:"no-referrer"}), timeout(8000)]);
-      if(res.ok){ const t = await res.text(); if(t.trim()) return t; }
+      const res=await Promise.race([fetch(u,{mode:"cors",credentials:"omit",cache:"no-cache",referrerPolicy:"no-referrer"}),timeout(8000)]);
+      if(res.ok){ const t=await res.text(); if(t.trim()) return t; }
     }catch(_){}
   }
   throw new Error("CSV not available");
@@ -250,14 +241,13 @@ async function fetchCSV(){
     const kOpen=document.getElementById('kpi-open');
     document.querySelectorAll('.skeleton').forEach(el=>el.classList.remove('skeleton'));
 
-    // Счётчики с плавным «подкрутом»
     function animateCounter(el, to, dur=800){
-      if(reduced){ el.textContent = (typeof to==='number')? (el===kSpend? money(to): to) : String(to); return; }
-      const from=0, start=performance.now();
+      if(reduced){ el.textContent = (el===kSpend? money(to): to); return; }
+      const start=performance.now();
       function tick(t){
         const p=Math.min(1,(t-start)/dur);
         const e=1-Math.pow(1-p,3);
-        const v=from+(to-from)*e;
+        const v=to*e;
         el.textContent = el===kSpend ? money(v) : Math.round(v);
         if(p<1) requestAnimationFrame(tick);
       }
@@ -267,7 +257,7 @@ async function fetchCSV(){
     animateCounter(kClosed,closedRows.length);
     animateCounter(kOpen,openRows.length);
 
-    /* Общие опции графиков */
+    /* Общие опции */
     const baseAnim = reduced ? 0 : 700;
     const common={
       responsive:true,maintainAspectRatio:false,resizeDelay:150,
@@ -292,7 +282,7 @@ async function fetchCSV(){
       options:{...common,spanGaps:true}
     });
 
-    /* Spend by Category — плавное «выкручивание» + масштаб */
+    /* Spend by Category — «выкручивание» + масштаб */
     new Chart(document.getElementById('chart-cat'),{
       type:"doughnut",
       data:{labels:catSeries.map(x=>x.label),
@@ -302,7 +292,6 @@ async function fetchCSV(){
         animation:{animateRotate:!reduced,animateScale:!reduced,duration:1200,easing:"easeInOutCubic",
           delay:(ctx)=>ctx.type==='data'? ctx.dataIndex*60 : 0}}
     });
-    // запускаем CSS-спин контейнера пончика
     const catSpin=document.getElementById('cat-spin'); requestAnimationFrame(()=>catSpin.classList.add('ready'));
 
     /* Vendors */
@@ -341,6 +330,7 @@ async function fetchCSV(){
 
     status.classList.add("hidden");
     content.classList.remove("hidden");
+    revealAll(); // гарантированно снимаем стартовое состояние
 
   }catch(err){
     console.error(err);
