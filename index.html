@@ -19,8 +19,7 @@
   *{box-sizing:border-box}
   html,body{height:100%}
   body{margin:0;background:var(--bg);color:var(--fg);overflow-x:hidden}
-  .screen{min-height:100vh;width:100%;padding:32px}
-  .container-max{max-width:1400px;margin:0 auto}
+  .screen{min-height:100vh;width:100vw;padding:32px}
   .glass{background:var(--glass);backdrop-filter:blur(18px);border:1px solid var(--border);border-radius:var(--radius);box-shadow:inset 0 1px 0 rgba(255,255,255,.22), 0 20px 60px rgba(0,0,0,.35)}
   .card{padding:var(--card-pad)}
   .title{font-weight:700;letter-spacing:.2px}
@@ -30,12 +29,10 @@
   @media (min-height:900px){ .chart-wrap{height:360px} }
   canvas{display:block;width:100%!important;height:100%!important}
 
-  /* Плавные появления без blur */
   .reveal{opacity:0;transform:translateY(14px) scale(.98)}
   .reveal.show{animation:reveal .7s cubic-bezier(.22,1,.36,1) forwards}
   @keyframes reveal{to{opacity:1;transform:none}}
 
-  /* Шиммер для загрузки */
   .skeleton{position:relative;overflow:hidden}
   .skeleton::after{
     content:"";position:absolute;inset:0;
@@ -44,7 +41,6 @@
   }
   @keyframes shimmer{to{transform:translateX(100%)}}
 
-  /* Вход пончика */
   .spin-in{transform:rotate(-140deg) scale(.6);opacity:.0}
   .spin-in.ready{animation:spinIn 1.2s cubic-bezier(.22,1,.36,1) forwards}
   @keyframes spinIn{to{transform:none;opacity:1}}
@@ -57,86 +53,84 @@
 </head>
 <body>
   <div class="screen">
-    <div class="container-max">
-      <header class="mb-8 reveal" style="animation-delay:60ms">
-        <h1 class="text-2xl md:text-4xl title">US Team Fleet</h1>
-      </header>
+    <header class="mb-8 reveal" style="animation-delay:60ms">
+      <h1 class="text-2xl md:text-4xl title">US Team Fleet</h1>
+    </header>
 
-      <div id="status" class="text-white/70 reveal" style="animation-delay:120ms">Loading data…</div>
+    <div id="status" class="text-white/70 reveal" style="animation-delay:120ms">Loading data…</div>
 
-      <div id="content" class="space-y-8 hidden">
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div class="glass card reveal skeleton" style="animation-delay:120ms">
-            <div class="text-sm text-white/70">Total Spend</div>
-            <div id="kpi-spend" class="kpi mt-1">—</div>
-            <div class="text-xs sub mt-1">Sum of all jobs</div>
-          </div>
-          <div class="glass card reveal skeleton" style="animation-delay:180ms">
-            <div class="text-sm text-white/70">Jobs Closed</div>
-            <div id="kpi-closed" class="kpi mt-1">—</div>
-            <div class="text-xs sub mt-1">Completed work orders</div>
-          </div>
-          <div class="glass card reveal skeleton" style="animation-delay:240ms">
-            <div class="text-sm text-white/70">Jobs Open</div>
-            <div id="kpi-open" class="kpi mt-1">—</div>
-            <div class="text-xs sub mt-1">Active or pending</div>
+    <div id="content" class="space-y-8 hidden">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="glass card reveal skeleton" style="animation-delay:120ms">
+          <div class="text-sm text-white/70">Total Spend</div>
+          <div id="kpi-spend" class="kpi mt-1">—</div>
+          <div class="text-xs sub mt-1">Sum of all jobs</div>
+        </div>
+        <div class="glass card reveal skeleton" style="animation-delay:180ms">
+          <div class="text-sm text-white/70">Jobs Closed</div>
+          <div id="kpi-closed" class="kpi mt-1">—</div>
+          <div class="text-xs sub mt-1">Completed work orders</div>
+        </div>
+        <div class="glass card reveal skeleton" style="animation-delay:240ms">
+          <div class="text-sm text-white/70">Jobs Open</div>
+          <div id="kpi-open" class="kpi mt-1">—</div>
+          <div class="text-xs sub mt-1">Active or pending</div>
+        </div>
+      </div>
+
+      <div class="glass card reveal" style="animation-delay:300ms">
+        <div class="mb-4 text-lg">Monthly Spend</div>
+        <div class="chart-wrap"><canvas id="chart-month"></canvas></div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="glass card reveal" style="animation-delay:360ms">
+          <div class="mb-4 text-lg">Spend by Category</div>
+          <div class="chart-wrap spin-in" id="cat-spin"><canvas id="chart-cat"></canvas></div>
+        </div>
+        <div class="glass card reveal lg:col-span-2" style="animation-delay:420ms">
+          <div class="mb-4 text-lg">Top Vendors</div>
+          <div class="chart-wrap"><canvas id="chart-vendor"></canvas></div>
+        </div>
+      </div>
+
+      <div class="glass card reveal" style="animation-delay:480ms">
+        <div class="mb-4 text-lg">Most Frequent Units (Breakdowns)</div>
+        <div class="chart-wrap"><canvas id="chart-unit"></canvas></div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="glass card reveal" style="animation-delay:540ms">
+          <div class="mb-4 text-lg">Open Reports</div>
+          <div class="overflow-x-auto">
+            <table class="min-w-full text-sm">
+              <thead class="text-white/70">
+                <tr>
+                  <th class="text-left pr-4 py-2">Date</th><th class="text-left pr-4 py-2">Unit</th>
+                  <th class="text-left pr-4 py-2">Category</th><th class="text-left pr-4 py-2">Repair</th>
+                  <th class="text-left pr-4 py-2">Vendor</th><th class="text-left pr-4 py-2">Total</th>
+                  <th class="text-left pr-4 py-2">Status</th>
+                </tr>
+              </thead>
+              <tbody id="open-body" class="divide-y divide-white/10"></tbody>
+            </table>
           </div>
         </div>
 
-        <div class="glass card reveal" style="animation-delay:300ms">
-          <div class="mb-4 text-lg">Monthly Spend</div>
-          <div class="chart-wrap"><canvas id="chart-month"></canvas></div>
-        </div>
-
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div class="glass card reveal" style="animation-delay:360ms">
-            <div class="mb-4 text-lg">Spend by Category</div>
-            <div class="chart-wrap spin-in" id="cat-spin"><canvas id="chart-cat"></canvas></div>
-          </div>
-          <div class="glass card reveal lg:col-span-2" style="animation-delay:420ms">
-            <div class="mb-4 text-lg">Top Vendors</div>
-            <div class="chart-wrap"><canvas id="chart-vendor"></canvas></div>
-          </div>
-        </div>
-
-        <div class="glass card reveal" style="animation-delay:480ms">
-          <div class="mb-4 text-lg">Most Frequent Units (Breakdowns)</div>
-          <div class="chart-wrap"><canvas id="chart-unit"></canvas></div>
-        </div>
-
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div class="glass card reveal" style="animation-delay:540ms">
-            <div class="mb-4 text-lg">Open Reports</div>
-            <div class="overflow-x-auto">
-              <table class="min-w-full text-sm">
-                <thead class="text-white/70">
-                  <tr>
-                    <th class="text-left pr-4 py-2">Date</th><th class="text-left pr-4 py-2">Unit</th>
-                    <th class="text-left pr-4 py-2">Category</th><th class="text-left pr-4 py-2">Repair</th>
-                    <th class="text-left pr-4 py-2">Vendor</th><th class="text-left pr-4 py-2">Total</th>
-                    <th class="text-left pr-4 py-2">Status</th>
-                  </tr>
-                </thead>
-                <tbody id="open-body" class="divide-y divide-white/10"></tbody>
-              </table>
-            </div>
-          </div>
-
-          <div class="glass card reveal" style="animation-delay:600ms">
-            <div class="mb-4 text-lg">Closed Reports</div>
-            <div class="overflow-x-auto">
-              <table class="min-w-full text-sm">
-                <thead class="text-white/70">
-                  <tr>
-                    <th class="text-left pr-4 py-2">Date</th><th class="text-left pr-4 py-2">Unit</th>
-                    <th class="text-left pr-4 py-2">Category</th><th class="text-left pr-4 py-2">Repair</th>
-                    <th class="text-left pr-4 py-2">Vendor</th><th class="text-left pr-4 py-2">Total</th>
-                    <th class="text-left pr-4 py-2">Status</th>
-                  </tr>
-                </thead>
-                <tbody id="closed-body" class="divide-y divide-white/10"></tbody>
-              </table>
-            </div>
+        <div class="glass card reveal" style="animation-delay:600ms">
+          <div class="mb-4 text-lg">Closed Reports</div>
+          <div class="overflow-x-auto">
+            <table class="min-w-full text-sm">
+              <thead class="text-white/70">
+                <tr>
+                  <th class="text-left pr-4 py-2">Date</th><th class="text-left pr-4 py-2">Unit</th>
+                  <th class="text-left pr-4 py-2">Category</th><th class="text-left pr-4 py-2">Repair</th>
+                  <th class="text-left pr-4 py-2">Vendor</th><th class="text-left pr-4 py-2">Total</th>
+                  <th class="text-left pr-4 py-2">Status</th>
+                </tr>
+              </thead>
+              <tbody id="closed-body" class="divide-y divide-white/10"></tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -150,36 +144,23 @@ const SHEET_GID="1435752205";
 const money=n=>new Intl.NumberFormat(undefined,{style:"currency",currency:"USD"}).format(n||0);
 const parseMoney=v=>{if(v==null)return 0; const t=String(v).replace(/[^0-9.\-]/g,""); const n=parseFloat(t); return isNaN(n)?0:n;};
 const parseMs=v=>{const t=Date.parse(v); return Number.isFinite(t)?t:0;};
-const monthKey=iso=>{const d=new Date(iso); if(isNaN(d)) return "Unknown"; return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;};
-const niceMonth=k=>{if(k==="Unknown")return k; const [y,m]=k.split("-"); const d=new Date(+y,+m-1,1); return d.toLocaleString(undefined,{month:"short",year:"2-digit"});};
-const reduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const toISODate=(v)=>{const d=new Date(v); if(!Number.isFinite(d.getTime())) return String(v||""); const y=d.getFullYear(); const m=String(d.getMonth()+1).padStart(2,"0"); const day=String(d.getDate()).padStart(2,"0"); return `${y}-${m}-${day}`;};
+const monthKeyISO=(v)=>{const d=new Date(v); if(!Number.isFinite(d.getTime())) return "Unknown"; const y=d.getFullYear(); const m=String(d.getMonth()+1).padStart(2,"0"); return `${y}-${m}`;};
 
-/* Глобально показать все элементы .reveal (без IO, чтобы не залипало) */
 function revealAll(){ document.querySelectorAll('.reveal').forEach(el=>el.classList.add('show')); }
 document.addEventListener('DOMContentLoaded', revealAll);
 
-/* Chart.js glow */
-const GlowShadow = {
-  id:'glowShadow',
-  beforeDatasetsDraw(chart){ const {ctx, chartArea} = chart; if(!chartArea) return; ctx.save(); ctx.shadowColor='rgba(125,211,252,.35)'; ctx.shadowBlur=14; },
-  afterDatasetsDraw(chart){ chart.ctx.restore(); }
-};
+const GlowShadow={id:'glowShadow',beforeDatasetsDraw(c){const {ctx,chartArea}=c;if(!chartArea)return;ctx.save();ctx.shadowColor='rgba(125,211,252,.35)';ctx.shadowBlur=14;},afterDatasetsDraw(c){c.ctx.restore();}};
 Chart.register(GlowShadow);
-Chart.defaults.elements.line.tension = 0.35;
-Chart.defaults.elements.line.borderCapStyle = 'round';
-Chart.defaults.elements.point.radius = 0;
+Chart.defaults.elements.line.tension=0.35;
+Chart.defaults.elements.line.borderCapStyle='round';
+Chart.defaults.elements.point.radius=0;
 
-function areaGradient(ctx, topColor, bottomColor){
-  const {chart:{ctx:c, chartArea:a}} = ctx;
-  if(!a) return bottomColor;
-  const g=c.createLinearGradient(0,a.top,0,a.bottom);
-  g.addColorStop(0, topColor); g.addColorStop(1, bottomColor);
-  return g;
-}
+function areaGradient(ctx, top, bottom){const {chart:{ctx:c,chartArea:a}}=ctx;if(!a)return bottom;const g=c.createLinearGradient(0,a.top,0,a.bottom);g.addColorStop(0,top);g.addColorStop(1,bottom);return g;}
 
 function timeout(ms){return new Promise((_,rej)=>setTimeout(()=>rej(new Error("Network timeout")),ms));}
 async function fetchCSV(){
-  const bust = Date.now().toString(36);
+  const bust=Date.now().toString(36);
   const urls=[
     `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${SHEET_GID}&_=${bust}`,
     `https://docs.google.com/spreadsheets/d/${SHEET_ID}/pub?gid=${SHEET_GID}&single=true&output=csv&_=${bust}`,
@@ -188,7 +169,7 @@ async function fetchCSV(){
   for(const u of urls){
     try{
       const res=await Promise.race([fetch(u,{mode:"cors",credentials:"omit",cache:"no-cache",referrerPolicy:"no-referrer"}),timeout(8000)]);
-      if(res.ok){ const t=await res.text(); if(t.trim()) return t; }
+      if(res.ok){const t=await res.text(); if(t.trim()) return t;}
     }catch(_){}
   }
   throw new Error("CSV not available");
@@ -199,15 +180,13 @@ async function fetchCSV(){
   const content=document.getElementById('content');
 
   try{
-    const csv = await fetchCSV();
-    const parsed = Papa.parse(csv,{header:true});
-    const rows = (parsed.data||[]).filter(r=>r && Object.values(r).some(x=>x && String(x).trim().length));
+    const csv=await fetchCSV();
+    const parsed=Papa.parse(csv,{header:true});
+    const rows=(parsed.data||[]).filter(r=>r && Object.values(r).some(x=>x && String(x).trim().length));
     if(!rows.length) throw new Error("No rows");
 
-    const meaningful = rows.filter(r => parseMoney(r["Total"])>0 ||
-      ["Date","Vendor","Category","Unit","Type","Status","Repair"].some(k=>r[k] && String(r[k]).trim().length)
-    );
-    if(!meaningful.length) throw new Error("No meaningful rows");
+    const meaningful=rows.filter(r => parseMoney(r["Total"])>0 ||
+      ["Date","Vendor","Category","Unit","Type","Status","Repair"].some(k=>r[k] && String(r[k]).trim().length));
 
     const norm=s=>String(s||"").trim().toLowerCase();
     const closedSet=new Set(["closed","completed","complete","done","resolved"]);
@@ -215,16 +194,15 @@ async function fetchCSV(){
     const closedRows=withStatus.filter(r=>closedSet.has(norm(r["Status"])));
     const openRows  =withStatus.filter(r=>!closedSet.has(norm(r["Status"])));
 
-    const totalSpend = meaningful.reduce((a,r)=>a+parseMoney(r["Total"]),0);
+    const totalSpend=meaningful.reduce((a,r)=>a+parseMoney(r["Total"]),0);
 
     const byMonth=new Map();
     meaningful.forEach(r=>{
-      const k=monthKey(r["Date"]); if(k==="Unknown") return;
-      const cur=byMonth.get(k)||{spend:0,count:0};
-      cur.spend+=parseMoney(r["Total"]); cur.count++; byMonth.set(k,cur);
+      const k=monthKeyISO(r["Date"]); if(k==="Unknown") return;
+      const cur=byMonth.get(k)||{spend:0,count:0}; cur.spend+=parseMoney(r["Total"]); cur.count++; byMonth.set(k,cur);
     });
     const monthSeries=[...byMonth.entries()].sort((a,b)=>a[0].localeCompare(b[0]))
-      .map(([k,v])=>({label:niceMonth(k),spend:+v.spend.toFixed(2),jobs:v.count}));
+      .map(([k,v])=>({label:k,spend:+v.spend.toFixed(2),jobs:v.count}));
 
     const byCat={}; meaningful.forEach(r=>{const c=r["Category"]||"Uncategorized"; byCat[c]=(byCat[c]||0)+parseMoney(r["Total"]);});
     const catSeries=Object.entries(byCat).map(([k,v])=>({label:k,value:+(+v).toFixed(2)})).sort((a,b)=>b.value-a.value);
@@ -235,43 +213,32 @@ async function fetchCSV(){
     const byUnit={}; meaningful.forEach(r=>{const u=r["Unit"]||"Unknown"; byUnit[u]=(byUnit[u]||0)+1;});
     const unitSeries=Object.entries(byUnit).map(([k,v])=>({label:k,value:v})).sort((a,b)=>b.value-a.value).slice(0,12);
 
-    /* KPI */
     const kSpend=document.getElementById('kpi-spend');
     const kClosed=document.getElementById('kpi-closed');
     const kOpen=document.getElementById('kpi-open');
     document.querySelectorAll('.skeleton').forEach(el=>el.classList.remove('skeleton'));
 
-    function animateCounter(el, to, dur=800){
-      if(reduced){ el.textContent = (el===kSpend? money(to): to); return; }
+    function animateCounter(el,to,dur=850){
       const start=performance.now();
-      function tick(t){
-        const p=Math.min(1,(t-start)/dur);
-        const e=1-Math.pow(1-p,3);
-        const v=to*e;
-        el.textContent = el===kSpend ? money(v) : Math.round(v);
-        if(p<1) requestAnimationFrame(tick);
-      }
+      function tick(t){const p=Math.min(1,(t-start)/dur);const e=1-Math.pow(1-p,3);const v=to*e;el.textContent=el===kSpend?money(v):Math.round(v);if(p<1)requestAnimationFrame(tick);}
       requestAnimationFrame(tick);
     }
     animateCounter(kSpend,totalSpend);
     animateCounter(kClosed,closedRows.length);
     animateCounter(kOpen,openRows.length);
 
-    /* Общие опции */
-    const baseAnim = reduced ? 0 : 700;
+    const baseAnim=700;
     const common={
       responsive:true,maintainAspectRatio:false,resizeDelay:150,
       animation:{duration:baseAnim,easing:"easeOutCubic"},
       plugins:{legend:{labels:{color:"#E5E7EB"}},tooltip:{backgroundColor:"rgba(12,16,27,.95)",padding:12,titleColor:"#E5E7EB",bodyColor:"#E5E7EB",borderWidth:0}},
-      scales:{x:{grid:{color:"var(--grid)"},ticks:{color:"#D1D5DB",maxRotation:18,minRotation:18}},
+      scales:{x:{grid:{color:"var(--grid)"},ticks:{color:"#D1D5DB"}},
               y:{beginAtZero:true,grid:{color:"var(--grid)"},ticks:{color:"#D1D5DB"}}}
     };
 
-    /* Monthly */
     new Chart(document.getElementById('chart-month'),{
       type:"line",
-      data:{
-        labels:monthSeries.map(x=>x.label),
+      data:{labels:monthSeries.map(x=>x.label),
         datasets:[
           {label:"Spend",data:monthSeries.map(x=>x.spend),borderColor:"#93C5FD",fill:true,
            backgroundColor:(ctx)=>areaGradient(ctx,"rgba(96,165,250,.9)","rgba(96,165,250,.05)"),
@@ -282,19 +249,17 @@ async function fetchCSV(){
       options:{...common,spanGaps:true}
     });
 
-    /* Spend by Category — «выкручивание» + масштаб */
     new Chart(document.getElementById('chart-cat'),{
       type:"doughnut",
       data:{labels:catSeries.map(x=>x.label),
             datasets:[{data:catSeries.map(x=>x.value),borderWidth:0,
                        backgroundColor:catSeries.map((_,i)=>`hsl(${200+i*14} 80% 60%)`)}]},
       options:{...common,scales:undefined,cutout:"62%",
-        animation:{animateRotate:!reduced,animateScale:!reduced,duration:1200,easing:"easeInOutCubic",
+        animation:{animateRotate:true,animateScale:true,duration:1200,easing:"easeInOutCubic",
           delay:(ctx)=>ctx.type==='data'? ctx.dataIndex*60 : 0}}
     });
-    const catSpin=document.getElementById('cat-spin'); requestAnimationFrame(()=>catSpin.classList.add('ready'));
+    requestAnimationFrame(()=>document.getElementById('cat-spin').classList.add('ready'));
 
-    /* Vendors */
     new Chart(document.getElementById('chart-vendor'),{
       type:"line",
       data:{labels:vendorSeries.map(x=>x.label),
@@ -302,7 +267,6 @@ async function fetchCSV(){
       options:common
     });
 
-    /* Units */
     new Chart(document.getElementById('chart-unit'),{
       type:"bar",
       data:{labels:unitSeries.map(x=>x.label),
@@ -310,12 +274,11 @@ async function fetchCSV(){
       options:common
     });
 
-    /* Таблицы */
     const drawT=(id,list)=>{
       const el=document.getElementById(id);
       el.innerHTML=list.length? list.map(r=>`
         <tr class="hover:bg-white/5 transition-colors">
-          <td class="pr-4 py-2">${r["Date"]||""}</td>
+          <td class="pr-4 py-2">${toISODate(r["Date"])}</td>
           <td class="pr-4 py-2">${r["Unit"]||""}</td>
           <td class="pr-4 py-2">${r["Category"]||""}</td>
           <td class="pr-4 py-2">${r["Repair"]||""}</td>
@@ -330,7 +293,7 @@ async function fetchCSV(){
 
     status.classList.add("hidden");
     content.classList.remove("hidden");
-    revealAll(); // гарантированно снимаем стартовое состояние
+    revealAll();
 
   }catch(err){
     console.error(err);
