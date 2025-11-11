@@ -5,187 +5,284 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>US Team Fleet</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <style>
     html,body{height:100%} body{background:#0B0F1A;color:#fff}
     .glass{background:rgba(255,255,255,.06);backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.18);border-radius:16px;box-shadow:inset 0 1px 0 rgba(255,255,255,.2)}
-    .card-pad{padding:24px} .title{font-weight:600}
-    .fadein{opacity:0;transform:translateY(10px);animation:fade .6s cubic-bezier(.22,1,.36,1) forwards}
+    .card{padding:24px}
+    .title{font-weight:600}
+    .fade{opacity:0;transform:translateY(10px);animation:fade .6s cubic-bezier(.22,1,.36,1) forwards}
     @keyframes fade{to{opacity:1;transform:none}}
-    svg,.recharts-wrapper,.recharts-surface{background:transparent!important}
-    .recharts-tooltip-wrapper{filter:drop-shadow(0 6px 18px rgba(0,0,0,.35))}
+    .kpi{font-size:1.875rem;line-height:2.25rem}
+    .sub{color:#cbd5e1}
   </style>
-  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin="anonymous"></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin="anonymous"></script>
-  <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js" crossorigin="anonymous"></script>
 </head>
 <body>
-  <div id="app" class="min-h-screen relative"></div>
+  <div class="w-full px-6 md:px-10 py-8 md:py-12">
+    <header class="mb-8 md:mb-12 fade">
+      <h1 class="text-2xl md:text-4xl title">US Team Fleet</h1>
+    </header>
 
-  <script>
-    (function loadRecharts(urls, i=0){
-      if (i>=urls.length) { document.getElementById('app').innerHTML='<div style="padding:24px;color:#f87171">Recharts не загрузился. Проверь доступ к CDN.</div>'; return; }
-      var s=document.createElement('script');
-      s.src=urls[i]; s.defer=true; s.crossOrigin='anonymous'; s.referrerPolicy='no-referrer';
-      s.onload=function(){ if (window.Recharts) boot(); else loadRecharts(urls, i+1); };
-      s.onerror=function(){ loadRecharts(urls, i+1); };
-      document.head.appendChild(s);
-    })([
-      'https://cdn.jsdelivr.net/npm/recharts@2.10.3/umd/Recharts.min.js',
-      'https://cdnjs.cloudflare.com/ajax/libs/recharts/2.10.3/Recharts.min.js',
-      'https://unpkg.com/recharts@2.10.3/umd/Recharts.min.js'
-    ]);
+    <div id="status" class="text-white/70 fade">Loading data…</div>
 
-    function boot(){
-      const h = React.createElement;
-      const { useEffect, useMemo, useState } = React;
-      const { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, PieChart, Pie, Cell, Legend, LineChart, Line, BarChart, Bar } = Recharts;
+    <div id="content" class="space-y-8 hidden">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="glass card fade">
+          <div class="text-sm text-white/70">Total Spend</div>
+          <div id="kpi-spend" class="kpi mt-1">—</div>
+          <div class="text-xs sub mt-1">Sum of all jobs</div>
+        </div>
+        <div class="glass card fade">
+          <div class="text-sm text-white/70">Jobs Closed</div>
+          <div id="kpi-closed" class="kpi mt-1">—</div>
+          <div class="text-xs sub mt-1">Completed work orders</div>
+        </div>
+        <div class="glass card fade">
+          <div class="text-sm text-white/70">Jobs Open</div>
+          <div id="kpi-open" class="kpi mt-1">—</div>
+          <div class="text-xs sub mt-1">Active or pending</div>
+        </div>
+      </div>
 
-      const SHEET_ID = "1QiFjfGky5vNBPf9WCPNkvszjJXH9413GecYzioSO32Q";
-      const SHEET_GID = "1435752205";
+      <div class="glass card fade">
+        <div class="mb-4 text-lg">Monthly Spend</div>
+        <canvas id="chart-month" height="120"></canvas>
+      </div>
 
-      const money = n => new Intl.NumberFormat(undefined,{style:"currency",currency:"USD"}).format(n||0);
-      const parseMoney = v => { if(v==null) return 0; const t=String(v).replace(/[^0-9.\-]/g,""); const n=parseFloat(t); return isNaN(n)?0:n; };
-      const niceMonth = k => { if(k==="Unknown") return k; const [y,m]=k.split("-"); const d=new Date(+y,+m-1,1); return d.toLocaleString(undefined,{month:"short",year:"2-digit"}); };
-      const parseMs = v => { const t=Date.parse(v); return Number.isFinite(t)?t:0; };
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="glass card fade">
+          <div class="mb-4 text-lg">Spend by Category</div>
+          <canvas id="chart-cat" height="220"></canvas>
+        </div>
+        <div class="glass card fade lg:col-span-2">
+          <div class="mb-4 text-lg">Top Vendors</div>
+          <canvas id="chart-vendor" height="220"></canvas>
+        </div>
+      </div>
 
-      function App(){
-        const [rows,setRows]=useState([]); const [loading,setLoading]=useState(true); const [error,setError]=useState(null);
+      <div class="glass card fade">
+        <div class="mb-4 text-lg">Most Frequent Units (Breakdowns)</div>
+        <canvas id="chart-unit" height="220"></canvas>
+      </div>
 
-        useEffect(()=>{let cancelled=false;
-          (async function load(){
-            const urls=[
-              `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${SHEET_GID}`,
-              `https://docs.google.com/spreadsheets/d/${SHEET_ID}/pub?gid=${SHEET_GID}&single=true&output=csv`,
-              `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${SHEET_GID}`
-            ];
-            let last=null;
-            for(const u of urls){
-              try{
-                const r=await fetch(u,{mode:"cors",credentials:"omit",cache:"no-cache",headers:{Accept:"text/csv"}});
-                if(!r.ok) throw new Error(`HTTP ${r.status}`);
-                const t=await r.text(); if(!t.trim()) throw new Error("Empty CSV");
-                const p=Papa.parse(t,{header:true});
-                const clean=(p.data||[]).filter(z=>z&&Object.values(z).some(x=>x&&String(x).trim().length));
-                if(!cancelled){ setRows(clean); setError(null); setLoading(false); }
-                return;
-              }catch(e){ last=e; }
-            }
-            if(!cancelled){ setRows([]); setError(last&&last.message?last.message:"Failed to fetch CSV"); setLoading(false); }
-          })();
-          return()=>{cancelled=true};
-        },[]);
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="glass card fade">
+          <div class="mb-4 text-lg">Open Reports</div>
+          <div class="overflow-x-auto">
+            <table class="min-w-full text-sm">
+              <thead class="text-white/70">
+                <tr>
+                  <th class="text-left pr-4 py-2">Date</th>
+                  <th class="text-left pr-4 py-2">Unit</th>
+                  <th class="text-left pr-4 py-2">Category</th>
+                  <th class="text-left pr-4 py-2">Repair</th>
+                  <th class="text-left pr-4 py-2">Vendor</th>
+                  <th class="text-left pr-4 py-2">Total</th>
+                  <th class="text-left pr-4 py-2">Status</th>
+                </tr>
+              </thead>
+              <tbody id="open-body" class="divide-y divide-white/10"></tbody>
+            </table>
+          </div>
+        </div>
 
-        const metrics=useMemo(()=>{
-          if(!rows.length) return null;
-          const meaningful=rows.filter(r=>parseMoney(r["Total"])>0 || ["Date","Vendor","Category","Unit","Type"].some(k=>r[k]&&String(r[k]).trim().length));
-          if(!meaningful.length) return null;
+        <div class="glass card fade">
+          <div class="mb-4 text-lg">Closed Reports</div>
+          <div class="overflow-x-auto">
+            <table class="min-w-full text-sm">
+              <thead class="text-white/70">
+                <tr>
+                  <th class="text-left pr-4 py-2">Date</th>
+                  <th class="text-left pr-4 py-2">Unit</th>
+                  <th class="text-left pr-4 py-2">Category</th>
+                  <th class="text-left pr-4 py-2">Repair</th>
+                  <th class="text-left pr-4 py-2">Vendor</th>
+                  <th class="text-left pr-4 py-2">Total</th>
+                  <th class="text-left pr-4 py-2">Status</th>
+                </tr>
+              </thead>
+              <tbody id="closed-body" class="divide-y divide-white/10"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
-          const norm=s=>String(s||"").trim().toLowerCase();
-          const closedSet=new Set(["closed","completed","complete","done","resolved"]);
-          const withStatus=meaningful.filter(r=>r["Status"]&&String(r["Status"]).trim().length);
-          const closedRows=withStatus.filter(r=>closedSet.has(norm(r["Status"])));
-          const openRows=withStatus.filter(r=>!closedSet.has(norm(r["Status"])));
-          const totalSpend=meaningful.reduce((a,r)=>a+parseMoney(r["Total"]),0);
+<script>
+const SHEET_ID = "1QiFjfGky5vNBPf9WCPNkvszjJXH9413GecYzioSO32Q";
+const SHEET_GID = "1435752205";
 
-          const byMonth=new Map();
-          meaningful.forEach(r=>{const d=new Date(r["Date"]); if(isNaN(d))return; const k=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`; const cur=byMonth.get(k)||{k,spend:0,count:0}; cur.spend+=parseMoney(r["Total"]); cur.count++; byMonth.set(k,cur);});
-          const monthSeries=Array.from(byMonth.values()).sort((a,b)=>a.k.localeCompare(b.k)).map(m=>({name:niceMonth(m.k),Spend:+m.spend.toFixed(2),Jobs:m.count}));
+const money = n => new Intl.NumberFormat(undefined,{style:"currency",currency:"USD"}).format(n||0);
+const parseMoney = v => { if(v==null) return 0; const t=String(v).replace(/[^0-9.\-]/g,""); const n=parseFloat(t); return isNaN(n)?0:n; };
+const parseMs = v => { const t=Date.parse(v); return Number.isFinite(t)?t:0; };
+const monthKey = iso => { const d=new Date(iso); if(isNaN(d)) return "Unknown"; return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`; };
+const niceMonth = key => { if(key==="Unknown") return key; const [y,m]=key.split("-"); const d=new Date(+y,+m-1,1); return d.toLocaleString(undefined,{month:"short",year:"2-digit"}); };
 
-          const byCat={}; meaningful.forEach(r=>{const c=r["Category"]||"Uncategorized"; byCat[c]=(byCat[c]||0)+parseMoney(r["Total"]);});
-          const categorySeries=Object.entries(byCat).map(([name,v])=>({name,value:+(+v).toFixed(2)})).sort((a,b)=>b.value-a.value);
+(async function main(){
+  const status = document.getElementById('status');
+  const content = document.getElementById('content');
 
-          const byVendor={}; meaningful.forEach(r=>{const v=r["Vendor"]||"Unknown"; byVendor[v]=(byVendor[v]||0)+parseMoney(r["Total"]);});
-          const vendorSeries=Object.entries(byVendor).map(([name,v])=>({name,value:+(+v).toFixed(2)})).sort((a,b)=>b.value-a.value).slice(0,6);
-
-          const byUnit={}; meaningful.forEach(r=>{const u=r["Unit"]||"Unknown"; byUnit[u]=(byUnit[u]||0)+1;});
-          const unitSeries=Object.entries(byUnit).map(([name,v])=>({name,value:v})).sort((a,b)=>b.value-a.value).slice(0,10);
-
-          const sortDesc=(a,b)=>parseMs(b["Date"])-parseMs(a["Date"]);
-          return { totalSpend, open:openRows.length, closed:closedRows.length, monthSeries, categorySeries, vendorSeries, unitSeries, openRows:openRows.sort(sortDesc), closedRows:closedRows.sort(sortDesc) };
-        },[rows]);
-
-        return h("div",{className:"w-full px-6 md:px-10 py-8 md:py-12"},
-          h("header",{className:"mb-8 md:mb-12 fadein"}, h("h1",{className:"text-2xl md:text-4xl title"},"US Team Fleet")),
-          loading && h("div",{className:"text-white/70"},"Loading data…"),
-          (!loading && !rows.length) && h("div",{className:"text-red-300"}, error || "No data"),
-          (!loading && metrics) && h("div",{className:"space-y-8"},
-            h("div",{className:"grid grid-cols-1 md:grid-cols-3 gap-6"},
-              h("div",{className:"glass card-pad fadein"}, h("div",{className:"text-sm text-white/70"},"Total Spend"), h("div",{className:"text-3xl md:text-4xl mt-1"}, money(metrics.totalSpend)), h("div",{className:"text-xs text-white/60 mt-1"},"Sum of all jobs")),
-              h("div",{className:"glass card-pad fadein"}, h("div",{className:"text-sm text-white/70"},"Jobs Closed"), h("div",{className:"text-3xl md:text-4xl mt-1"}, String(metrics.closed)), h("div",{className:"text-xs text-white/60 mt-1"},"Completed work orders")),
-              h("div",{className:"glass card-pad fadein"}, h("div",{className:"text-sm text-white/70"},"Jobs Open"), h("div",{className:"text-3xl md:text-4xl mt-1"}, String(metrics.open)), h("div",{className:"text-xs text-white/60 mt-1"},"Active or pending"))
-            ),
-            h("div",{className:"glass card-pad fadein chart"},
-              h("h2",{className:"text-lg"},"Monthly Spend"),
-              h("div",{className:"h-64"},
-                h(ResponsiveContainer,{width:"100%",height:"100%"},
-                  h(AreaChart,{data:metrics.monthSeries,margin:{top:0,right:0,left:0,bottom:0}},
-                    h("defs",null, h("linearGradient",{id:"grad",x1:"0",y1:"0",x2:"0",y2:"1"}, h("stop",{offset:"0%",stopColor:"#60A5FA",stopOpacity:0.9}), h("stop",{offset:"100%",stopColor:"#60A5FA",stopOpacity:0.05}))),
-                    h(XAxis,{dataKey:"name",tick:{fill:"#D1D5DB"},axisLine:false,tickLine:false}),
-                    h(YAxis,{tick:{fill:"#D1D5DB"},axisLine:false,tickLine:false,width:72}),
-                    h(Tooltip,{contentStyle:{background:"rgba(12,16,27,0.9)",border:"none",borderRadius:12,color:"#E5E7EB"}}),
-                    h(Area,{type:"monotone",dataKey:"Spend",stroke:"#93C5FD",strokeWidth:3,fill:"url(#grad)"}),
-                    h(Line,{type:"monotone",dataKey:"Jobs",stroke:"#A7F3D0",strokeWidth:2,dot:false})
-                  )))),
-            h("div",{className:"grid grid-cols-1 lg:grid-cols-3 gap-6"},
-              h("div",{className:"glass card-pad fadein chart"},
-                h("h2",{className:"text-lg"},"Spend by Category"),
-                h("div",{className:"h-64"},
-                  h(ResponsiveContainer,{width:"100%",height:"100%"},
-                    h(PieChart,null,
-                      h(Tooltip,{contentStyle:{background:"rgba(12,16,27,0.9)",border:"none",borderRadius:12,color:"#E5E7EB"}}),
-                      h(Pie,{data:metrics.categorySeries,dataKey:"value",nameKey:"name",innerRadius:60,outerRadius:90,paddingAngle:3},
-                        metrics.categorySeries.map((_,i)=> h(Cell,{key:i,fill:`hsl(${200+i*14},80%,65%)`}))
-                      ),
-                      h(Legend,{wrapperStyle:{color:"#E5E7EB"},iconType:"circle"})
-                    )))),
-              h("div",{className:"glass card-pad fadein chart lg:col-span-2"},
-                h("h2",{className:"text-lg"},"Top Vendors"),
-                h("div",{className:"h-64"},
-                  h(ResponsiveContainer,{width:"100%",height:"100%"},
-                    h(LineChart,{data:metrics.vendorSeries,margin:{top:0,right:0,left:0,bottom:0}},
-                      h(XAxis,{dataKey:"name",tick:{fill:"#D1D5DB"},axisLine:false,tickLine:false,interval:0,angle:-20,textAnchor:"end",height:60}),
-                      h(YAxis,{tick:{fill:"#D1D5DB"},axisLine:false,tickLine:false,width:72}),
-                      h(Tooltip,{contentStyle:{background:"rgba(12,16,27,0.9)",border:"none",borderRadius:12,color:"#E5E7EB"}}),
-                      h(Line,{type:"monotone",dataKey:"value",stroke:"#7DD3FC",strokeWidth:3,dot:{r:3}})
-                    ))))),
-            h("div",{className:"glass card-pad fadein chart"},
-              h("h2",{className:"text-lg"},"Most Frequent Units (Breakdowns)"),
-              h("div",{className:"h-72"},
-                h(ResponsiveContainer,{width:"100%",height:"100%"},
-                  h(BarChart,{data:metrics.unitSeries,margin:{top:0,right:0,left:0,bottom:0},barCategoryGap:"20%",barGap:4},
-                    h(XAxis,{dataKey:"name",tick:{fill:"#D1D5DB"},axisLine:false,tickLine:false,interval:0,angle:-20,textAnchor:"end",height:60}),
-                    h(YAxis,{domain:[0,(max)=> typeof max==='number'? max+1 : 1],tick:{fill:"#D1D5DB"},axisLine:false,tickLine:false,width:72}),
-                    h(Tooltip,{contentStyle:{background:"rgba(12,16,27,0.9)",border:"none",borderRadius:12,color:"#E5E7EB"}}),
-                    h(Bar,{dataKey:"value",fill:"#93C5FD",radius:[10,10,0,0]})
-                  ))))),
-            h("div",{className:"grid grid-cols-1 lg:grid-cols-2 gap-6"},
-              h("div",{className:"glass card-pad fadein"},
-                h("div",{className:"text-lg"},"Open Reports"),
-                h("div",{className:"overflow-x-auto mt-3"},
-                  h("table",{className:"min-w-full text-sm"},
-                    h("thead",{className:"text-white/70"}, h("tr",null, ["Date","Unit","Category","Repair","Vendor","Total","Status"].map(th=>h("th",{key:th,className:"text-left pr-4 py-2"},th)))),
-                    h("tbody",{className:"divide-y divide-white/10"},
-                      metrics.openRows.map((r,i)=> h("tr",{key:"o-"+i,className:"hover:bg-white/5"},
-                        ["Date","Unit","Category","Repair","Vendor","Total","Status"].map((k,ix)=> h("td",{key:ix,className:"pr-4 py-2"}, k==="Total"? money(parseMoney(r[k])): r[k] ))
-                      )),
-                      metrics.openRows.length===0 && h("tr",null,h("td",{colSpan:7,className:"py-4 text-white/60"},"No open reports"))
-                    )))),
-              h("div",{className:"glass card-pad fadein"},
-                h("div",{className:"text-lg"},"Closed Reports"),
-                h("div",{className:"overflow-x-auto mt-3"},
-                  h("table",{className:"min-w-full text-sm"},
-                    h("thead",{className:"text-white/70"}, h("tr",null, ["Date","Unit","Category","Repair","Vendor","Total","Status"].map(th=>h("th",{key:th,className:"text-left pr-4 py-2"},th)))),
-                    h("tbody",{className:"divide-y divide-white/10"},
-                      metrics.closedRows.map((r,i)=> h("tr",{key:"c-"+i,className:"hover:bg-white/5"},
-                        ["Date","Unit","Category","Repair","Vendor","Total","Status"].map((k,ix)=> h("td",{key:ix,className:"pr-4 py-2"}, k==="Total"? money(parseMoney(r[k])): r[k] ))
-                      )),
-                      metrics.closedRows.length===0 && h("tr",null,h("td",{colSpan:7,className:"py-4 text-white/60"},"No closed reports"))
-                    ))))
-          )));
-      }
-
-      ReactDOM.createRoot(document.getElementById('app')).render(React.createElement(App));
+  try{
+    const urls = [
+      `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${SHEET_GID}`,
+      `https://docs.google.com/spreadsheets/d/${SHEET_ID}/pub?gid=${SHEET_GID}&single=true&output=csv`,
+      `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${SHEET_GID}`
+    ];
+    let csv = "";
+    for(const u of urls){
+      const r = await fetch(u,{mode:"cors",credentials:"omit",cache:"no-cache"});
+      if(r.ok){ csv = await r.text(); if(csv.trim()) break; }
     }
-  </script>
+    if(!csv.trim()) throw new Error("CSV empty");
+
+    const parsed = Papa.parse(csv,{header:true});
+    const rows = (parsed.data||[]).filter(r=>r && Object.values(r).some(x=>x && String(x).trim().length));
+    if(!rows.length) throw new Error("No rows");
+
+    const meaningful = rows.filter(r => parseMoney(r["Total"])>0 ||
+      ["Date","Vendor","Category","Unit","Type"].some(k=>r[k] && String(r[k]).trim().length)
+    );
+    if(!meaningful.length) throw new Error("No meaningful rows");
+
+    const norm = s => String(s||"").trim().toLowerCase();
+    const closedSet = new Set(["closed","completed","complete","done","resolved"]);
+    const withStatus = meaningful.filter(r=>r["Status"] && String(r["Status"]).trim().length);
+    const closedRows = withStatus.filter(r=>closedSet.has(norm(r["Status"])));
+    const openRows   = withStatus.filter(r=>!closedSet.has(norm(r["Status"])));
+
+    const totalSpend = meaningful.reduce((a,r)=>a+parseMoney(r["Total"]),0);
+
+    const byMonth = new Map();
+    meaningful.forEach(r=>{
+      const k = monthKey(r["Date"]);
+      if(k==="Unknown") return;
+      const cur = byMonth.get(k)||{spend:0,count:0};
+      cur.spend += parseMoney(r["Total"]);
+      cur.count++;
+      byMonth.set(k,cur);
+    });
+    const monthSeries = [...byMonth.entries()]
+      .sort((a,b)=>a[0].localeCompare(b[0]))
+      .map(([k,v])=>({label:niceMonth(k), spend:+v.spend.toFixed(2), jobs:v.count}));
+
+    const byCat = {};
+    meaningful.forEach(r=>{ const c=r["Category"]||"Uncategorized"; byCat[c]=(byCat[c]||0)+parseMoney(r["Total"]); });
+    const catSeries = Object.entries(byCat).map(([k,v])=>({label:k, value:+(+v).toFixed(2)})).sort((a,b)=>b.value-a.value);
+
+    const byVendor = {};
+    meaningful.forEach(r=>{ const v=r["Vendor"]||"Unknown"; byVendor[v]=(byVendor[v]||0)+parseMoney(r["Total"]); });
+    const vendorSeries = Object.entries(byVendor).map(([k,v])=>({label:k, value:+(+v).toFixed(2)})).sort((a,b)=>b.value-a.value).slice(0,6);
+
+    const byUnit = {};
+    meaningful.forEach(r=>{ const u=r["Unit"]||"Unknown"; byUnit[u]=(byUnit[u]||0)+1; });
+    const unitSeries = Object.entries(byUnit).map(([k,v])=>({label:k, value:v})).sort((a,b)=>b.value-a.value).slice(0,10);
+
+    document.getElementById('kpi-spend').textContent = money(totalSpend);
+    document.getElementById('kpi-closed').textContent = closedRows.length;
+    document.getElementById('kpi-open').textContent = openRows.length;
+
+    const common = {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 700, easing: "easeOutCubic" },
+      plugins: {
+        legend: { labels: { color: "#E5E7EB" } },
+        tooltip: { backgroundColor: "rgba(12,16,27,0.95)", padding: 12, titleColor:"#E5E7EB", bodyColor:"#E5E7EB", borderWidth:0, borderColor:"transparent" }
+      },
+      scales: {
+        x: { grid: { display:false }, ticks: { color:"#D1D5DB" } },
+        y: { grid: { color:"rgba(255,255,255,0.07)" }, ticks: { color:"#D1D5DB" } }
+      }
+    };
+
+    new Chart(document.getElementById('chart-month'), {
+      type: "line",
+      data: {
+        labels: monthSeries.map(x=>x.label),
+        datasets: [
+          { label:"Spend", data: monthSeries.map(x=>x.spend),
+            borderColor:"#93C5FD", fill:true,
+            backgroundColor:(ctx)=> {
+              const {chart:{ctx:c,chartArea}}=ctx;
+              if(!chartArea) return "rgba(147,197,253,0.15)";
+              const g=c.createLinearGradient(0,chartArea.top,0,chartArea.bottom);
+              g.addColorStop(0,"rgba(96,165,250,0.9)");
+              g.addColorStop(1,"rgba(96,165,250,0.05)");
+              return g;
+            },
+            tension:0.35, pointRadius:0 }
+          ,
+          { label:"Jobs", data: monthSeries.map(x=>x.jobs),
+            borderColor:"#A7F3D0", tension:0.35, pointRadius:0 }
+        ]
+      },
+      options: common
+    });
+
+    new Chart(document.getElementById('chart-cat'), {
+      type: "doughnut",
+      data: {
+        labels: catSeries.map(x=>x.label),
+        datasets: [{ data: catSeries.map(x=>x.value),
+          borderWidth:0,
+          backgroundColor: catSeries.map((_,i)=>`hsl(${200+i*14} 80% 60%)`) }]
+      },
+      options: { ...common, scales: undefined, cutout: "62%" }
+    });
+
+    new Chart(document.getElementById('chart-vendor'), {
+      type: "line",
+      data: {
+        labels: vendorSeries.map(x=>x.label),
+        datasets: [{ label:"Spend", data: vendorSeries.map(x=>x.value), borderColor:"#7DD3FC", tension:0.35, pointRadius:3 }]
+      },
+      options: { ...common, scales: { x:{ grid:{display:false}, ticks:{ color:"#D1D5DB", maxRotation:30, minRotation:30 } }, y: common.scales.y } }
+    });
+
+    new Chart(document.getElementById('chart-unit'), {
+      type: "bar",
+      data: {
+        labels: unitSeries.map(x=>x.label),
+        datasets: [{ label:"Breakdowns", data: unitSeries.map(x=>x.value), backgroundColor:"#93C5FD", borderRadius:10 }]
+      },
+      options: { ...common, scales: { x:{ grid:{display:false}, ticks:{ color:"#D1D5DB", maxRotation:30, minRotation:30 } }, y: common.scales.y } }
+    });
+
+    function fillTable(tbodyId, list){
+      const tb = document.getElementById(tbodyId);
+      tb.innerHTML = "";
+      if(list.length===0){
+        tb.innerHTML = `<tr><td class="py-4 text-white/60" colspan="7">No data</td></tr>`;
+        return;
+      }
+      for(const r of list){
+        const tr = document.createElement("tr");
+        tr.className = "hover:bg-white/5";
+        tr.innerHTML = `
+          <td class="pr-4 py-2">${r["Date"]||""}</td>
+          <td class="pr-4 py-2">${r["Unit"]||""}</td>
+          <td class="pr-4 py-2">${r["Category"]||""}</td>
+          <td class="pr-4 py-2">${r["Repair"]||""}</td>
+          <td class="pr-4 py-2">${r["Vendor"]||""}</td>
+          <td class="pr-4 py-2">${money(parseMoney(r["Total"]))}</td>
+          <td class="pr-4 py-2">${r["Status"]||""}</td>`;
+        tb.appendChild(tr);
+      }
+    }
+    const sortDesc = (a,b)=> parseMs(b["Date"]) - parseMs(a["Date"]);
+    fillTable("open-body",  openRows.sort(sortDesc));
+    fillTable("closed-body",closedRows.sort(sortDesc));
+
+    status.classList.add("hidden");
+    content.classList.remove("hidden");
+  }catch(err){
+    status.textContent = "Error: " + (err && err.message ? err.message : String(err));
+    status.classList.remove("text-white/70");
+    status.classList.add("text-red-300");
+  }
+})();
+</script>
 </body>
 </html>
