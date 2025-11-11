@@ -1,32 +1,34 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>US Team Fleet</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-  <style>
-    *{box-sizing:border-box}
-    html,body{min-height:100%}
-    body{margin:0;background:#0B0F1A;color:#fff;overflow-x:hidden}
-    .glass{background:rgba(255,255,255,.06);backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.18);border-radius:16px;box-shadow:inset 0 1px 0 rgba(255,255,255,.2)}
-    .card{padding:24px}
-    .title{font-weight:600}
-    .fade{opacity:0;transform:translateY(10px);animation:fade .6s cubic-bezier(.22,1,.36,1) forwards}
-    @keyframes fade{to{opacity:1;transform:none}}
-    .kpi{font-size:1.875rem;line-height:2.25rem}
-    .sub{color:#cbd5e1}
-    .shadow-soft{box-shadow:0 15px 40px rgba(0,0,0,.35)}
-    .chart-wrap{position:relative;height:280px;overflow:hidden;border-radius:12px}
-    @media (min-width:1024px){ .chart-wrap{height:300px} }
-    canvas{display:block;width:100%!important;height:100%!important}
-  </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>US Team Fleet</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;background:#0B0F1A;color:#fff;overflow-x:hidden}
+  .glass{background:rgba(255,255,255,.06);backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.18);border-radius:16px;box-shadow:inset 0 1px 0 rgba(255,255,255,.2)}
+  .card{padding:24px}
+  .title{font-weight:600}
+  .fade{opacity:0;transform:translateY(10px);animation:fade .6s cubic-bezier(.22,1,.36,1) forwards}
+  @keyframes fade{to{opacity:1;transform:none}}
+  .kpi{font-size:1.875rem;line-height:2.25rem}
+  .sub{color:#cbd5e1}
+  .shadow-soft{box-shadow:0 15px 40px rgba(0,0,0,.35)}
+  .chart-wrap{position:relative;height:300px;overflow:hidden;border-radius:12px}
+  @media (min-height:900px){ .chart-wrap{height:360px} }
+  canvas{display:block;width:100%!important;height:100%!important}
+  /* фуллскрин контейнер */
+  .screen{min-height:100vh;width:100%;padding:32px}
+</style>
 </head>
 <body>
-  <div class="w-full max-w-[1400px] mx-auto px-6 md:px-10 py-8 md:py-12">
-    <header class="mb-8 md:mb-12 fade">
+  <div class="screen">
+    <header class="mb-8 fade">
       <h1 class="text-2xl md:text-4xl title">US Team Fleet</h1>
     </header>
 
@@ -121,10 +123,12 @@ const SHEET_ID = "1QiFjfGky5vNBPf9WCPNkvszjJXH9413GecYzioSO32Q";
 const SHEET_GID = "1435752205";
 
 const money = n => new Intl.NumberFormat(undefined,{style:"currency",currency:"USD"}).format(n||0);
-const parseMoney = v => { if(v==null) return 0; const t=String(v).replace(/[^0-9.\\-]/g,""); const n=parseFloat(t); return isNaN(n)?0:n; };
+const parseMoney = v => { if(v==null) return 0; const t=String(v).replace(/[^0-9.\-]/g,""); const n=parseFloat(t); return isNaN(n)?0:n; };
 const parseMs = v => { const t=Date.parse(v); return Number.isFinite(t)?t:0; };
-const monthKey = iso => { const d=new Date(iso); if(isNaN(d)) return "Unknown"; return \`\${d.getFullYear()}-\${String(d.getMonth()+1).padStart(2,"0")}\`; };
+const monthKey = iso => { const d=new Date(iso); if(isNaN(d)) return "Unknown"; return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`; };
 const niceMonth = key => { if(key==="Unknown") return key; const [y,m]=key.split("-"); const d=new Date(+y,+m-1,1); return d.toLocaleString(undefined,{month:"short",year:"2-digit"}); };
+
+function timeout(ms){ return new Promise((_,rej)=>setTimeout(()=>rej(new Error("Network timeout")),ms)); }
 
 (async function main(){
   const status = document.getElementById('status');
@@ -132,23 +136,31 @@ const niceMonth = key => { if(key==="Unknown") return key; const [y,m]=key.split
 
   try{
     const urls = [
-      \`https://docs.google.com/spreadsheets/d/\${SHEET_ID}/gviz/tq?tqx=out:csv&gid=\${SHEET_GID}\`,
-      \`https://docs.google.com/spreadsheets/d/\${SHEET_ID}/pub?gid=\${SHEET_GID}&single=true&output=csv\`,
-      \`https://docs.google.com/spreadsheets/d/\${SHEET_ID}/export?format=csv&gid=\${SHEET_GID}\`
+      `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${SHEET_GID}`,
+      `https://docs.google.com/spreadsheets/d/${SHEET_ID}/pub?gid=${SHEET_GID}&single=true&output=csv`,
+      `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${SHEET_GID}`
     ];
     let csv = "";
     for(const u of urls){
-      const r = await fetch(u,{mode:"cors",credentials:"omit",cache:"no-cache"});
-      if(r.ok){ csv = await r.text(); if(csv.trim()) break; }
+      try{
+        const res = await Promise.race([
+          fetch(u,{mode:"cors",credentials:"omit",cache:"no-cache",referrerPolicy:"no-referrer"}),
+          timeout(8000)
+        ]);
+        if(res.ok){
+          const text = await res.text();
+          if(text.trim()){ csv=text; break; }
+        }
+      }catch(e){ console.warn("fetch fail", u, e.message||e); }
     }
-    if(!csv.trim()) throw new Error("CSV empty");
+    if(!csv.trim()) throw new Error("CSV not available");
 
     const parsed = Papa.parse(csv,{header:true});
     const rows = (parsed.data||[]).filter(r=>r && Object.values(r).some(x=>x && String(x).trim().length));
     if(!rows.length) throw new Error("No rows");
 
     const meaningful = rows.filter(r => parseMoney(r["Total"])>0 ||
-      ["Date","Vendor","Category","Unit","Type"].some(k=>r[k] && String(r[k]).trim().length)
+      ["Date","Vendor","Category","Unit","Type","Status","Repair"].some(k=>r[k] && String(r[k]).trim().length)
     );
     if(!meaningful.length) throw new Error("No meaningful rows");
 
@@ -185,86 +197,56 @@ const niceMonth = key => { if(key==="Unknown") return key; const [y,m]=key.split
     meaningful.forEach(r=>{ const u=r["Unit"]||"Unknown"; byUnit[u]=(byUnit[u]||0)+1; });
     const unitSeries = Object.entries(byUnit).map(([k,v])=>({label:k, value:v})).sort((a,b)=>b.value-a.value).slice(0,10);
 
+    // KPI
     document.getElementById('kpi-spend').textContent = money(totalSpend);
     document.getElementById('kpi-closed').textContent = closedRows.length;
     document.getElementById('kpi-open').textContent = openRows.length;
 
+    // Charts options
     const common = {
-      responsive: true,
-      maintainAspectRatio: false,
-      resizeDelay: 150,
-      animation: { duration: 600, easing: "easeOutCubic" },
-      plugins: {
-        legend: { labels: { color: "#E5E7EB" } },
-        tooltip: { backgroundColor: "rgba(12,16,27,0.95)", padding: 12, titleColor:"#E5E7EB", bodyColor:"#E5E7EB", borderWidth:0 }
-      },
-      scales: {
-        x: { grid: { color:"rgba(255,255,255,0.06)" }, ticks: { color:"#D1D5DB", maxRotation:20, minRotation:20 } },
-        y: { beginAtZero:true, grid: { color:"rgba(255,255,255,0.06)" }, ticks: { color:"#D1D5DB" } }
-      }
+      responsive:true, maintainAspectRatio:false, resizeDelay:150,
+      animation:{duration:600,easing:"easeOutCubic"},
+      plugins:{ legend:{labels:{color:"#E5E7EB"}}, tooltip:{backgroundColor:"rgba(12,16,27,0.95)",padding:12,titleColor:"#E5E7EB",bodyColor:"#E5E7EB",borderWidth:0} },
+      scales:{ x:{grid:{color:"rgba(255,255,255,0.06)"},ticks:{color:"#D1D5DB",maxRotation:18,minRotation:18}},
+              y:{beginAtZero:true,grid:{color:"rgba(255,255,255,0.06)"},ticks:{color:"#D1D5DB"}} }
     };
 
-    const monthCtx = document.getElementById('chart-month');
-    const chartMonth = new Chart(monthCtx, {
-      type: "line",
-      data: {
-        labels: monthSeries.map(x=>x.label),
-        datasets: [
-          {
-            label:"Spend",
-            data: monthSeries.map(x=>x.spend),
-            borderColor:"#93C5FD",
-            fill:true,
-            backgroundColor:(ctx)=> {
-              const {chart:{ctx:c,chartArea}}=ctx;
-              if(!chartArea) return "rgba(147,197,253,0.15)";
-              const g=c.createLinearGradient(0,chartArea.top,0,chartArea.bottom);
-              g.addColorStop(0,"rgba(96,165,250,0.9)");
-              g.addColorStop(1,"rgba(96,165,250,0.05)");
-              return g;
-            },
-            tension:0.35,
-            pointRadius: monthSeries.length<2 ? 4 : 0,
-            pointHoverRadius:5
-          },
-          {
-            label:"Jobs",
-            data: monthSeries.map(x=>x.jobs),
-            borderColor:"#A7F3D0",
-            tension:0.35,
-            pointRadius: monthSeries.length<2 ? 4 : 0
-          }
-        ]
-      },
-      options: { ...common, spanGaps:true }
+    // Monthly
+    new Chart(document.getElementById('chart-month'),{
+      type:"line",
+      data:{ labels:monthSeries.map(x=>x.label),
+             datasets:[
+               {label:"Spend",data:monthSeries.map(x=>x.spend),borderColor:"#93C5FD",fill:true,
+                backgroundColor:(ctx)=>{const a=ctx.chart.chartArea;if(!a) return "rgba(147,197,253,0.15)"; const g=ctx.chart.ctx.createLinearGradient(0,a.top,0,a.bottom); g.addColorStop(0,"rgba(96,165,250,0.9)"); g.addColorStop(1,"rgba(96,165,250,0.05)"); return g;},
+                tension:.35,pointRadius:monthSeries.length<2?4:0,pointHoverRadius:5},
+               {label:"Jobs",data:monthSeries.map(x=>x.jobs),borderColor:"#A7F3D0",tension:.35,pointRadius:monthSeries.length<2?4:0}
+             ]},
+      options:{...common,spanGaps:true}
     });
 
-    const chartCat = new Chart(document.getElementById('chart-cat'), {
-      type: "doughnut",
-      data: {
-        labels: catSeries.map(x=>x.label),
-        datasets: [{ data: catSeries.map(x=>x.value), borderWidth:0, backgroundColor: catSeries.map((_,i)=>`hsl(${200+i*14} 80% 60%)`) }]
-      },
-      options: { ...common, scales: undefined, cutout: "62%" }
+    // Doughnut
+    new Chart(document.getElementById('chart-cat'),{
+      type:"doughnut",
+      data:{labels:catSeries.map(x=>x.label),datasets:[{data:catSeries.map(x=>x.value),borderWidth:0,backgroundColor:catSeries.map((_,i)=>`hsl(${200+i*14} 80% 60%)`)}]},
+      options:{...common,scales:undefined,cutout:"62%"}
     });
 
-    const chartVendor = new Chart(document.getElementById('chart-vendor'), {
-      type: "line",
-      data: { labels: vendorSeries.map(x=>x.label), datasets: [{ label:"Spend", data: vendorSeries.map(x=>x.value), borderColor:"#7DD3FC", tension:0.35, pointRadius:3 }] },
-      options: common
+    // Vendors
+    new Chart(document.getElementById('chart-vendor'),{
+      type:"line",
+      data:{labels:vendorSeries.map(x=>x.label),datasets:[{label:"Spend",data:vendorSeries.map(x=>x.value),borderColor:"#7DD3FC",tension:.35,pointRadius:3}]},
+      options:common
     });
 
-    const chartUnit = new Chart(document.getElementById('chart-unit'), {
-      type: "bar",
-      data: { labels: unitSeries.map(x=>x.label), datasets: [{ label:"Breakdowns", data: unitSeries.map(x=>x.value), backgroundColor:"#93C5FD", borderRadius:10 }] },
-      options: common
+    // Units
+    new Chart(document.getElementById('chart-unit'),{
+      type:"bar",
+      data:{labels:unitSeries.map(x=>x.label),datasets:[{label:"Breakdowns",data:unitSeries.map(x=>x.value),backgroundColor:"#93C5FD",borderRadius:10}]},
+      options:common
     });
 
-    window.addEventListener('resize', ()=> {
-      chartMonth.resize(); chartCat.resize(); chartVendor.resize(); chartUnit.resize();
-    });
-
-    const tb = (id,list)=>{
+    // Tables
+    const drawT = (id,list)=>{
       const el=document.getElementById(id);
       el.innerHTML=list.length? list.map(r=>`
         <tr class="hover:bg-white/5">
@@ -278,12 +260,13 @@ const niceMonth = key => { if(key==="Unknown") return key; const [y,m]=key.split
         </tr>`).join('') : `<tr><td class="py-4 text-white/60" colspan="7">No data</td></tr>`;
     };
     const sortDesc=(a,b)=>parseMs(b["Date"])-parseMs(a["Date"]);
-    tb("open-body",  withStatus.filter(r=>!closedSet.has(norm(r["Status"]))).sort(sortDesc));
-    tb("closed-body",withStatus.filter(r=> closedSet.has(norm(r["Status"]))).sort(sortDesc));
+    drawT("open-body",  withStatus.filter(r=>!closedSet.has(norm(r["Status"]))).sort(sortDesc));
+    drawT("closed-body",withStatus.filter(r=> closedSet.has(norm(r["Status"]))).sort(sortDesc));
 
     status.classList.add("hidden");
     content.classList.remove("hidden");
   }catch(err){
+    console.error(err);
     status.textContent = "Error: " + (err && err.message ? err.message : String(err));
     status.classList.remove("text-white/70");
     status.classList.add("text-red-300");
