@@ -8,7 +8,9 @@
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <style>
-    html,body{height:100%} body{background:#0B0F1A;color:#fff}
+    *{box-sizing:border-box}
+    html,body{min-height:100%}
+    body{margin:0;background:#0B0F1A;color:#fff;overflow-x:hidden}
     .glass{background:rgba(255,255,255,.06);backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.18);border-radius:16px;box-shadow:inset 0 1px 0 rgba(255,255,255,.2)}
     .card{padding:24px}
     .title{font-weight:600}
@@ -17,6 +19,9 @@
     .kpi{font-size:1.875rem;line-height:2.25rem}
     .sub{color:#cbd5e1}
     .shadow-soft{box-shadow:0 15px 40px rgba(0,0,0,.35)}
+    .chart-wrap{position:relative;height:280px;overflow:hidden;border-radius:12px}
+    @media (min-width:1024px){ .chart-wrap{height:300px} }
+    canvas{display:block;width:100%!important;height:100%!important}
   </style>
 </head>
 <body>
@@ -48,23 +53,23 @@
 
       <div class="glass card fade shadow-soft">
         <div class="mb-4 text-lg">Monthly Spend</div>
-        <div style="height:280px"><canvas id="chart-month"></canvas></div>
+        <div class="chart-wrap"><canvas id="chart-month"></canvas></div>
       </div>
 
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div class="glass card fade shadow-soft">
           <div class="mb-4 text-lg">Spend by Category</div>
-          <div style="height:280px"><canvas id="chart-cat"></canvas></div>
+          <div class="chart-wrap"><canvas id="chart-cat"></canvas></div>
         </div>
         <div class="glass card fade lg:col-span-2 shadow-soft">
           <div class="mb-4 text-lg">Top Vendors</div>
-          <div style="height:280px"><canvas id="chart-vendor"></canvas></div>
+          <div class="chart-wrap"><canvas id="chart-vendor"></canvas></div>
         </div>
       </div>
 
       <div class="glass card fade shadow-soft">
         <div class="mb-4 text-lg">Most Frequent Units (Breakdowns)</div>
-        <div style="height:280px"><canvas id="chart-unit"></canvas></div>
+        <div class="chart-wrap"><canvas id="chart-unit"></canvas></div>
       </div>
 
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -116,9 +121,9 @@ const SHEET_ID = "1QiFjfGky5vNBPf9WCPNkvszjJXH9413GecYzioSO32Q";
 const SHEET_GID = "1435752205";
 
 const money = n => new Intl.NumberFormat(undefined,{style:"currency",currency:"USD"}).format(n||0);
-const parseMoney = v => { if(v==null) return 0; const t=String(v).replace(/[^0-9.\-]/g,""); const n=parseFloat(t); return isNaN(n)?0:n; };
+const parseMoney = v => { if(v==null) return 0; const t=String(v).replace(/[^0-9.\\-]/g,""); const n=parseFloat(t); return isNaN(n)?0:n; };
 const parseMs = v => { const t=Date.parse(v); return Number.isFinite(t)?t:0; };
-const monthKey = iso => { const d=new Date(iso); if(isNaN(d)) return "Unknown"; return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`; };
+const monthKey = iso => { const d=new Date(iso); if(isNaN(d)) return "Unknown"; return \`\${d.getFullYear()}-\${String(d.getMonth()+1).padStart(2,"0")}\`; };
 const niceMonth = key => { if(key==="Unknown") return key; const [y,m]=key.split("-"); const d=new Date(+y,+m-1,1); return d.toLocaleString(undefined,{month:"short",year:"2-digit"}); };
 
 (async function main(){
@@ -127,9 +132,9 @@ const niceMonth = key => { if(key==="Unknown") return key; const [y,m]=key.split
 
   try{
     const urls = [
-      `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${SHEET_GID}`,
-      `https://docs.google.com/spreadsheets/d/${SHEET_ID}/pub?gid=${SHEET_GID}&single=true&output=csv`,
-      `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${SHEET_GID}`
+      \`https://docs.google.com/spreadsheets/d/\${SHEET_ID}/gviz/tq?tqx=out:csv&gid=\${SHEET_GID}\`,
+      \`https://docs.google.com/spreadsheets/d/\${SHEET_ID}/pub?gid=\${SHEET_GID}&single=true&output=csv\`,
+      \`https://docs.google.com/spreadsheets/d/\${SHEET_ID}/export?format=csv&gid=\${SHEET_GID}\`
     ];
     let csv = "";
     for(const u of urls){
@@ -187,18 +192,20 @@ const niceMonth = key => { if(key==="Unknown") return key; const [y,m]=key.split
     const common = {
       responsive: true,
       maintainAspectRatio: false,
-      animation: { duration: 700, easing: "easeOutCubic" },
+      resizeDelay: 150,
+      animation: { duration: 600, easing: "easeOutCubic" },
       plugins: {
         legend: { labels: { color: "#E5E7EB" } },
-        tooltip: { backgroundColor: "rgba(12,16,27,0.95)", padding: 12, titleColor:"#E5E7EB", bodyColor:"#E5E7EB", borderWidth:0, borderColor:"transparent" }
+        tooltip: { backgroundColor: "rgba(12,16,27,0.95)", padding: 12, titleColor:"#E5E7EB", bodyColor:"#E5E7EB", borderWidth:0 }
       },
       scales: {
-        x: { grid: { color:"rgba(255,255,255,0.06)" }, ticks: { color:"#D1D5DB", maxRotation:24, minRotation:24 } },
+        x: { grid: { color:"rgba(255,255,255,0.06)" }, ticks: { color:"#D1D5DB", maxRotation:20, minRotation:20 } },
         y: { beginAtZero:true, grid: { color:"rgba(255,255,255,0.06)" }, ticks: { color:"#D1D5DB" } }
       }
     };
 
-    new Chart(document.getElementById('chart-month'), {
+    const monthCtx = document.getElementById('chart-month');
+    const chartMonth = new Chart(monthCtx, {
       type: "line",
       data: {
         labels: monthSeries.map(x=>x.label),
@@ -217,7 +224,7 @@ const niceMonth = key => { if(key==="Unknown") return key; const [y,m]=key.split
               return g;
             },
             tension:0.35,
-            pointRadius: monthSeries.length<2 ? 4 : 0,   /* фикс для одного месяца */
+            pointRadius: monthSeries.length<2 ? 4 : 0,
             pointHoverRadius:5
           },
           {
@@ -232,7 +239,7 @@ const niceMonth = key => { if(key==="Unknown") return key; const [y,m]=key.split
       options: { ...common, spanGaps:true }
     });
 
-    new Chart(document.getElementById('chart-cat'), {
+    const chartCat = new Chart(document.getElementById('chart-cat'), {
       type: "doughnut",
       data: {
         labels: catSeries.map(x=>x.label),
@@ -241,48 +248,38 @@ const niceMonth = key => { if(key==="Unknown") return key; const [y,m]=key.split
       options: { ...common, scales: undefined, cutout: "62%" }
     });
 
-    new Chart(document.getElementById('chart-vendor'), {
+    const chartVendor = new Chart(document.getElementById('chart-vendor'), {
       type: "line",
-      data: {
-        labels: vendorSeries.map(x=>x.label),
-        datasets: [{ label:"Spend", data: vendorSeries.map(x=>x.value), borderColor:"#7DD3FC", tension:0.35, pointRadius:3 }]
-      },
+      data: { labels: vendorSeries.map(x=>x.label), datasets: [{ label:"Spend", data: vendorSeries.map(x=>x.value), borderColor:"#7DD3FC", tension:0.35, pointRadius:3 }] },
       options: common
     });
 
-    new Chart(document.getElementById('chart-unit'), {
+    const chartUnit = new Chart(document.getElementById('chart-unit'), {
       type: "bar",
-      data: {
-        labels: unitSeries.map(x=>x.label),
-        datasets: [{ label:"Breakdowns", data: unitSeries.map(x=>x.value), backgroundColor:"#93C5FD", borderRadius:10 }]
-      },
+      data: { labels: unitSeries.map(x=>x.label), datasets: [{ label:"Breakdowns", data: unitSeries.map(x=>x.value), backgroundColor:"#93C5FD", borderRadius:10 }] },
       options: common
     });
 
-    function fillTable(tbodyId, list){
-      const tb = document.getElementById(tbodyId);
-      tb.innerHTML = "";
-      if(list.length===0){
-        tb.innerHTML = `<tr><td class="py-4 text-white/60" colspan="7">No data</td></tr>`;
-        return;
-      }
-      for(const r of list){
-        const tr = document.createElement("tr");
-        tr.className = "hover:bg-white/5";
-        tr.innerHTML = `
+    window.addEventListener('resize', ()=> {
+      chartMonth.resize(); chartCat.resize(); chartVendor.resize(); chartUnit.resize();
+    });
+
+    const tb = (id,list)=>{
+      const el=document.getElementById(id);
+      el.innerHTML=list.length? list.map(r=>`
+        <tr class="hover:bg-white/5">
           <td class="pr-4 py-2">${r["Date"]||""}</td>
           <td class="pr-4 py-2">${r["Unit"]||""}</td>
           <td class="pr-4 py-2">${r["Category"]||""}</td>
           <td class="pr-4 py-2">${r["Repair"]||""}</td>
           <td class="pr-4 py-2">${r["Vendor"]||""}</td>
           <td class="pr-4 py-2">${money(parseMoney(r["Total"]))}</td>
-          <td class="pr-4 py-2">${r["Status"]||""}</td>`;
-        tb.appendChild(tr);
-      }
-    }
-    const sortDesc = (a,b)=> parseMs(b["Date"]) - parseMs(a["Date"]);
-    fillTable("open-body",  openRows.sort(sortDesc));
-    fillTable("closed-body",closedRows.sort(sortDesc));
+          <td class="pr-4 py-2">${r["Status"]||""}</td>
+        </tr>`).join('') : `<tr><td class="py-4 text-white/60" colspan="7">No data</td></tr>`;
+    };
+    const sortDesc=(a,b)=>parseMs(b["Date"])-parseMs(a["Date"]);
+    tb("open-body",  withStatus.filter(r=>!closedSet.has(norm(r["Status"]))).sort(sortDesc));
+    tb("closed-body",withStatus.filter(r=> closedSet.has(norm(r["Status"]))).sort(sortDesc));
 
     status.classList.add("hidden");
     content.classList.remove("hidden");
