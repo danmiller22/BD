@@ -4,106 +4,140 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>US Team Fleet</title>
+
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
 <style>
+  :root{
+    --bg:#0B0F1A; --fg:#e5e7eb; --muted:#cbd5e1; --glass:rgba(255,255,255,.06);
+    --border:rgba(255,255,255,.18); --grid:rgba(255,255,255,.06);
+    --card-pad:24px; --radius:16px;
+  }
   *{box-sizing:border-box}
   html,body{height:100%}
-  body{margin:0;background:#0B0F1A;color:#fff;overflow-x:hidden}
-  .glass{background:rgba(255,255,255,.06);backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.18);border-radius:16px;box-shadow:inset 0 1px 0 rgba(255,255,255,.2)}
-  .card{padding:24px}
-  .title{font-weight:600}
-  .kpi{font-size:1.875rem;line-height:2.25rem}
-  .sub{color:#cbd5e1}
-  .shadow-soft{box-shadow:0 15px 40px rgba(0,0,0,.35)}
-  .chart-wrap{position:relative;height:300px;overflow:hidden;border-radius:12px}
+  body{margin:0;background:var(--bg);color:var(--fg);overflow-x:hidden}
+  .screen{min-height:100vh;width:100%;padding:32px}
+  .container-max{max-width:1400px;margin:0 auto}
+  .glass{background:var(--glass);backdrop-filter:blur(18px);border:1px solid var(--border);border-radius:var(--radius);box-shadow:inset 0 1px 0 rgba(255,255,255,.22), 0 20px 60px rgba(0,0,0,.35)}
+  .card{padding:var(--card-pad)}
+  .title{font-weight:700;letter-spacing:.2px}
+  .kpi{font-size:1.9rem;line-height:2.2rem}
+  .sub{color:var(--muted)}
+  .chart-wrap{position:relative;height:310px;overflow:hidden;border-radius:12px}
   @media (min-height:900px){ .chart-wrap{height:360px} }
   canvas{display:block;width:100%!important;height:100%!important}
-  .screen{min-height:100vh;width:100%;padding:32px}
+
+  /* Анимации появления */
+  .reveal{opacity:0;transform:translateY(14px) scale(.98);filter:blur(2px)}
+  .reveal.show{animation:reveal .7s cubic-bezier(.22,1,.36,1) forwards}
+  @keyframes reveal{to{opacity:1;transform:none;filter:none}}
+
+  /* Шиммер для загрузки */
+  .skeleton{position:relative;overflow:hidden}
+  .skeleton::after{
+    content:"";position:absolute;inset:0;
+    background:linear-gradient(90deg, transparent, rgba(255,255,255,.06), transparent);
+    transform:translateX(-100%);animation:shimmer 1.3s infinite;
+  }
+  @keyframes shimmer{to{transform:translateX(100%)}}
+
+  /* Вращающийся вход пончика */
+  .spin-in{transform:rotate(-140deg) scale(.6);opacity:.0}
+  .spin-in.ready{animation:spinIn 1.2s cubic-bezier(.22,1,.36,1) forwards}
+  @keyframes spinIn{to{transform:none;opacity:1}}
+
+  /* Уважение reduce-motion */
+  @media (prefers-reduced-motion:reduce){
+    .reveal,.spin-in{animation:none !important;opacity:1;transform:none}
+    .skeleton::after{display:none}
+  }
 </style>
 </head>
 <body>
   <div class="screen">
-    <header class="mb-8">
-      <h1 class="text-2xl md:text-4xl title">US Team Fleet</h1>
-    </header>
+    <div class="container-max">
+      <header class="mb-8 reveal" style="animation-delay:60ms">
+        <h1 class="text-2xl md:text-4xl title">US Team Fleet</h1>
+      </header>
 
-    <div id="status" class="text-white/70">Loading data…</div>
+      <div id="status" class="text-white/70 reveal" style="animation-delay:120ms">Loading data…</div>
 
-    <div id="content" class="space-y-8 hidden">
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div class="glass card shadow-soft">
-          <div class="text-sm text-white/70">Total Spend</div>
-          <div id="kpi-spend" class="kpi mt-1">—</div>
-          <div class="text-xs sub mt-1">Sum of all jobs</div>
-        </div>
-        <div class="glass card shadow-soft">
-          <div class="text-sm text-white/70">Jobs Closed</div>
-          <div id="kpi-closed" class="kpi mt-1">—</div>
-          <div class="text-xs sub mt-1">Completed work orders</div>
-        </div>
-        <div class="glass card shadow-soft">
-          <div class="text-sm text-white/70">Jobs Open</div>
-          <div id="kpi-open" class="kpi mt-1">—</div>
-          <div class="text-xs sub mt-1">Active or pending</div>
-        </div>
-      </div>
-
-      <div class="glass card shadow-soft">
-        <div class="mb-4 text-lg">Monthly Spend</div>
-        <div class="chart-wrap"><canvas id="chart-month"></canvas></div>
-      </div>
-
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div class="glass card shadow-soft">
-          <div class="mb-4 text-lg">Spend by Category</div>
-          <div class="chart-wrap"><canvas id="chart-cat"></canvas></div>
-        </div>
-        <div class="glass card lg:col-span-2 shadow-soft">
-          <div class="mb-4 text-lg">Top Vendors</div>
-          <div class="chart-wrap"><canvas id="chart-vendor"></canvas></div>
-        </div>
-      </div>
-
-      <div class="glass card shadow-soft">
-        <div class="mb-4 text-lg">Most Frequent Units (Breakdowns)</div>
-        <div class="chart-wrap"><canvas id="chart-unit"></canvas></div>
-      </div>
-
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div class="glass card shadow-soft">
-          <div class="mb-4 text-lg">Open Reports</div>
-          <div class="overflow-x-auto">
-            <table class="min-w-full text-sm">
-              <thead class="text-white/70">
-                <tr>
-                  <th class="text-left pr-4 py-2">Date</th><th class="text-left pr-4 py-2">Unit</th>
-                  <th class="text-left pr-4 py-2">Category</th><th class="text-left pr-4 py-2">Repair</th>
-                  <th class="text-left pr-4 py-2">Vendor</th><th class="text-left pr-4 py-2">Total</th>
-                  <th class="text-left pr-4 py-2">Status</th>
-                </tr>
-              </thead>
-              <tbody id="open-body" class="divide-y divide-white/10"></tbody>
-            </table>
+      <div id="content" class="space-y-8 hidden">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div class="glass card reveal skeleton" style="animation-delay:120ms">
+            <div class="text-sm text-white/70">Total Spend</div>
+            <div id="kpi-spend" class="kpi mt-1">—</div>
+            <div class="text-xs sub mt-1">Sum of all jobs</div>
+          </div>
+          <div class="glass card reveal skeleton" style="animation-delay:180ms">
+            <div class="text-sm text-white/70">Jobs Closed</div>
+            <div id="kpi-closed" class="kpi mt-1">—</div>
+            <div class="text-xs sub mt-1">Completed work orders</div>
+          </div>
+          <div class="glass card reveal skeleton" style="animation-delay:240ms">
+            <div class="text-sm text-white/70">Jobs Open</div>
+            <div id="kpi-open" class="kpi mt-1">—</div>
+            <div class="text-xs sub mt-1">Active or pending</div>
           </div>
         </div>
 
-        <div class="glass card shadow-soft">
-          <div class="mb-4 text-lg">Closed Reports</div>
-          <div class="overflow-x-auto">
-            <table class="min-w-full text-sm">
-              <thead class="text-white/70">
-                <tr>
-                  <th class="text-left pr-4 py-2">Date</th><th class="text-left pr-4 py-2">Unit</th>
-                  <th class="text-left pr-4 py-2">Category</th><th class="text-left pr-4 py-2">Repair</th>
-                  <th class="text-left pr-4 py-2">Vendor</th><th class="text-left pr-4 py-2">Total</th>
-                  <th class="text-left pr-4 py-2">Status</th>
-                </tr>
-              </thead>
-              <tbody id="closed-body" class="divide-y divide-white/10"></tbody>
-            </table>
+        <div class="glass card reveal" style="animation-delay:300ms">
+          <div class="mb-4 text-lg">Monthly Spend</div>
+          <div class="chart-wrap"><canvas id="chart-month"></canvas></div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div class="glass card reveal" style="animation-delay:360ms">
+            <div class="mb-4 text-lg">Spend by Category</div>
+            <div class="chart-wrap spin-in" id="cat-spin"><canvas id="chart-cat"></canvas></div>
+          </div>
+          <div class="glass card reveal lg:col-span-2" style="animation-delay:420ms">
+            <div class="mb-4 text-lg">Top Vendors</div>
+            <div class="chart-wrap"><canvas id="chart-vendor"></canvas></div>
+          </div>
+        </div>
+
+        <div class="glass card reveal" style="animation-delay:480ms">
+          <div class="mb-4 text-lg">Most Frequent Units (Breakdowns)</div>
+          <div class="chart-wrap"><canvas id="chart-unit"></canvas></div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div class="glass card reveal" style="animation-delay:540ms">
+            <div class="mb-4 text-lg">Open Reports</div>
+            <div class="overflow-x-auto">
+              <table class="min-w-full text-sm">
+                <thead class="text-white/70">
+                  <tr>
+                    <th class="text-left pr-4 py-2">Date</th><th class="text-left pr-4 py-2">Unit</th>
+                    <th class="text-left pr-4 py-2">Category</th><th class="text-left pr-4 py-2">Repair</th>
+                    <th class="text-left pr-4 py-2">Vendor</th><th class="text-left pr-4 py-2">Total</th>
+                    <th class="text-left pr-4 py-2">Status</th>
+                  </tr>
+                </thead>
+                <tbody id="open-body" class="divide-y divide-white/10"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="glass card reveal" style="animation-delay:600ms">
+            <div class="mb-4 text-lg">Closed Reports</div>
+            <div class="overflow-x-auto">
+              <table class="min-w-full text-sm">
+                <thead class="text-white/70">
+                  <tr>
+                    <th class="text-left pr-4 py-2">Date</th><th class="text-left pr-4 py-2">Unit</th>
+                    <th class="text-left pr-4 py-2">Category</th><th class="text-left pr-4 py-2">Repair</th>
+                    <th class="text-left pr-4 py-2">Vendor</th><th class="text-left pr-4 py-2">Total</th>
+                    <th class="text-left pr-4 py-2">Status</th>
+                  </tr>
+                </thead>
+                <tbody id="closed-body" class="divide-y divide-white/10"></tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>
@@ -114,44 +148,69 @@
 const SHEET_ID="1QiFjfGky5vNBPf9WCPNkvszjJXH9413GecYzioSO32Q";
 const SHEET_GID="1435752205";
 
-const EXCLUDE = [
-  { Date:"2025-11-04", Unit:"TRL 555 ( TRK 62 )", Vendor:"Love's", Total:"US$52.36", Status:"Closed" },
-  { Unit:"TRK 008", Vendor:"Love's", Total:"US$168.16", Status:"Completed" },
-  { Unit:"TRL 9835", Vendor:"TA", Total:"US$55.00", Status:"Completed" },
-];
-const eq = (a,b)=>String(a||"").trim()===String(b||"").trim();
-const isExcluded = r => EXCLUDE.some(sig=>Object.entries(sig).every(([k,v])=>eq(r[k],v)));
-
 const money=n=>new Intl.NumberFormat(undefined,{style:"currency",currency:"USD"}).format(n||0);
 const parseMoney=v=>{if(v==null)return 0; const t=String(v).replace(/[^0-9.\-]/g,""); const n=parseFloat(t); return isNaN(n)?0:n;};
 const parseMs=v=>{const t=Date.parse(v); return Number.isFinite(t)?t:0;};
 const monthKey=iso=>{const d=new Date(iso); if(isNaN(d)) return "Unknown"; return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;};
 const niceMonth=k=>{if(k==="Unknown")return k; const [y,m]=k.split("-"); const d=new Date(+y,+m-1,1); return d.toLocaleString(undefined,{month:"short",year:"2-digit"});};
+const reduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+/* Плавный показ секций по IntersectionObserver */
+(function mountReveals(){
+  const io = new IntersectionObserver((entries)=>{
+    for(const e of entries){ if(e.isIntersecting) e.target.classList.add('show'); }
+  },{rootMargin:"-5% 0px -10% 0px",threshold:0.1});
+  document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
+})();
+
+/* Chart.js небольшая «неоновая» тень и сглаженные концы линий */
+const GlowShadow = {
+  id:'glowShadow',
+  beforeDatasetsDraw(chart, args, opts){
+    const {ctx, chartArea} = chart; if(!chartArea) return;
+    ctx.save(); ctx.shadowColor = 'rgba(125,211,252,.35)'; ctx.shadowBlur = 14; ctx.shadowOffsetY = 0;
+  },
+  afterDatasetsDraw(chart){ chart.ctx.restore(); }
+};
+Chart.register(GlowShadow);
+Chart.defaults.elements.line.tension = 0.35;
+Chart.defaults.elements.line.borderCapStyle = 'round';
+Chart.defaults.elements.point.radius = 0;
+
+/* Утилита: безопасный градиент */
+function areaGradient(ctx, topColor, bottomColor){
+  const {chart:{ctx:c, chartArea:a}} = ctx;
+  if(!a) return bottomColor;
+  const g = c.createLinearGradient(0, a.top, 0, a.bottom);
+  g.addColorStop(0, topColor); g.addColorStop(1, bottomColor);
+  return g;
+}
+
+/* Fetch с таймаутом и тройным fallback */
 function timeout(ms){return new Promise((_,rej)=>setTimeout(()=>rej(new Error("Network timeout")),ms));}
+async function fetchCSV(){
+  const urls=[
+    `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${SHEET_GID}`,
+    `https://docs.google.com/spreadsheets/d/${SHEET_ID}/pub?gid=${SHEET_GID}&single=true&output=csv`,
+    `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${SHEET_GID}`
+  ];
+  for(const u of urls){
+    try{
+      const res = await Promise.race([fetch(u,{mode:"cors",credentials:"omit",cache:"no-cache",referrerPolicy:"no-referrer"}), timeout(8000)]);
+      if(res.ok){ const t = await res.text(); if(t.trim()) return t; }
+    }catch(_){}
+  }
+  throw new Error("CSV not available");
+}
 
-(async function(){
+(async function main(){
   const status=document.getElementById('status');
   const content=document.getElementById('content');
 
   try{
-    const urls=[
-      `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${SHEET_GID}`,
-      `https://docs.google.com/spreadsheets/d/${SHEET_ID}/pub?gid=${SHEET_GID}&single=true&output=csv`,
-      `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${SHEET_GID}`
-    ];
-    let csv="";
-    for(const u of urls){
-      try{
-        const res=await Promise.race([fetch(u,{mode:"cors",credentials:"omit",cache:"no-cache",referrerPolicy:"no-referrer"}),timeout(8000)]);
-        if(res.ok){const t=await res.text(); if(t.trim()){csv=t; break;}}
-      }catch(_){}
-    }
-    if(!csv.trim()) throw new Error("CSV not available");
-
+    const csv = await fetchCSV();
     const parsed = Papa.parse(csv,{header:true});
-    const rowsRaw = (parsed.data||[]).filter(r=>r && Object.values(r).some(x=>x && String(x).trim().length));
-    const rows = rowsRaw.filter(r=>!isExcluded(r));
+    const rows = (parsed.data||[]).filter(r=>r && Object.values(r).some(x=>x && String(x).trim().length));
     if(!rows.length) throw new Error("No rows");
 
     const meaningful = rows.filter(r => parseMoney(r["Total"])>0 ||
@@ -159,18 +218,19 @@ function timeout(ms){return new Promise((_,rej)=>setTimeout(()=>rej(new Error("N
     );
     if(!meaningful.length) throw new Error("No meaningful rows");
 
-    const norm = s => String(s||"").trim().toLowerCase();
-    const closedSet = new Set(["closed","completed","complete","done","resolved"]);
-    const withStatus = meaningful.filter(r=>r["Status"] && String(r["Status"]).trim().length);
-    const closedRows = withStatus.filter(r=>closedSet.has(norm(r["Status"])));
-    const openRows   = withStatus.filter(r=>!closedSet.has(norm(r["Status"])));
+    const norm=s=>String(s||"").trim().toLowerCase();
+    const closedSet=new Set(["closed","completed","complete","done","resolved"]);
+    const withStatus=meaningful.filter(r=>r["Status"] && String(r["Status"]).trim().length);
+    const closedRows=withStatus.filter(r=>closedSet.has(norm(r["Status"])));
+    const openRows  =withStatus.filter(r=>!closedSet.has(norm(r["Status"])));
 
     const totalSpend = meaningful.reduce((a,r)=>a+parseMoney(r["Total"]),0);
 
     const byMonth=new Map();
     meaningful.forEach(r=>{
       const k=monthKey(r["Date"]); if(k==="Unknown") return;
-      const cur=byMonth.get(k)||{spend:0,count:0}; cur.spend+=parseMoney(r["Total"]); cur.count++; byMonth.set(k,cur);
+      const cur=byMonth.get(k)||{spend:0,count:0};
+      cur.spend+=parseMoney(r["Total"]); cur.count++; byMonth.set(k,cur);
     });
     const monthSeries=[...byMonth.entries()].sort((a,b)=>a[0].localeCompare(b[0]))
       .map(([k,v])=>({label:niceMonth(k),spend:+v.spend.toFixed(2),jobs:v.count}));
@@ -179,68 +239,93 @@ function timeout(ms){return new Promise((_,rej)=>setTimeout(()=>rej(new Error("N
     const catSeries=Object.entries(byCat).map(([k,v])=>({label:k,value:+(+v).toFixed(2)})).sort((a,b)=>b.value-a.value);
 
     const byVendor={}; meaningful.forEach(r=>{const v=r["Vendor"]||"Unknown"; byVendor[v]=(byVendor[v]||0)+parseMoney(r["Total"]);});
-    const vendorSeries=Object.entries(byVendor).map(([k,v])=>({label:k,value:+(+v).toFixed(2)})).sort((a,b)=>b.value-a.value).slice(0,6);
+    const vendorSeries=Object.entries(byVendor).map(([k,v])=>({label:k,value:+(+v).toFixed(2)})).sort((a,b)=>b.value-a.value).slice(0,8);
 
     const byUnit={}; meaningful.forEach(r=>{const u=r["Unit"]||"Unknown"; byUnit[u]=(byUnit[u]||0)+1;});
-    const unitSeries=Object.entries(byUnit).map(([k,v])=>({label:k,value:v})).sort((a,b)=>b.value-a.value).slice(0,10);
+    const unitSeries=Object.entries(byUnit).map(([k,v])=>({label:k,value:v})).sort((a,b)=>b.value-a.value).slice(0,12);
 
-    // KPI
-    document.getElementById('kpi-spend').textContent = money(totalSpend);
-    document.getElementById('kpi-closed').textContent = closedRows.length;
-    document.getElementById('kpi-open').textContent = openRows.length;
+    /* KPI */
+    const kSpend=document.getElementById('kpi-spend');
+    const kClosed=document.getElementById('kpi-closed');
+    const kOpen=document.getElementById('kpi-open');
+    document.querySelectorAll('.skeleton').forEach(el=>el.classList.remove('skeleton'));
 
-    // Общие опции
+    // Счётчики с плавным «подкрутом»
+    function animateCounter(el, to, dur=800){
+      if(reduced){ el.textContent = (typeof to==='number')? (el===kSpend? money(to): to) : String(to); return; }
+      const from=0, start=performance.now();
+      function tick(t){
+        const p=Math.min(1,(t-start)/dur);
+        const e=1-Math.pow(1-p,3);
+        const v=from+(to-from)*e;
+        el.textContent = el===kSpend ? money(v) : Math.round(v);
+        if(p<1) requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+    }
+    animateCounter(kSpend,totalSpend);
+    animateCounter(kClosed,closedRows.length);
+    animateCounter(kOpen,openRows.length);
+
+    /* Общие опции графиков */
+    const baseAnim = reduced ? 0 : 700;
     const common={
       responsive:true,maintainAspectRatio:false,resizeDelay:150,
-      animation:{duration:600,easing:"easeOutCubic"},
+      animation:{duration:baseAnim,easing:"easeOutCubic"},
       plugins:{legend:{labels:{color:"#E5E7EB"}},tooltip:{backgroundColor:"rgba(12,16,27,.95)",padding:12,titleColor:"#E5E7EB",bodyColor:"#E5E7EB",borderWidth:0}},
-      scales:{x:{grid:{color:"rgba(255,255,255,.06)"},ticks:{color:"#D1D5DB",maxRotation:18,minRotation:18}},
-              y:{beginAtZero:true,grid:{color:"rgba(255,255,255,.06)"},ticks:{color:"#D1D5DB"}}}
+      scales:{x:{grid:{color:"var(--grid)"},ticks:{color:"#D1D5DB",maxRotation:18,minRotation:18}},
+              y:{beginAtZero:true,grid:{color:"var(--grid)"},ticks:{color:"#D1D5DB"}}}
     };
 
-    // Monthly
+    /* Monthly */
     new Chart(document.getElementById('chart-month'),{
       type:"line",
-      data:{labels:monthSeries.map(x=>x.label),
+      data:{
+        labels:monthSeries.map(x=>x.label),
         datasets:[
           {label:"Spend",data:monthSeries.map(x=>x.spend),borderColor:"#93C5FD",fill:true,
-           backgroundColor:(ctx)=>{const a=ctx.chart.chartArea;if(!a) return "rgba(147,197,253,.15)";const g=ctx.chart.ctx.createLinearGradient(0,a.top,0,a.bottom);g.addColorStop(0,"rgba(96,165,250,.9)");g.addColorStop(1,"rgba(96,165,250,.05)");return g;},
-           tension:.35,pointRadius:monthSeries.length<2?4:0,pointHoverRadius:5},
-          {label:"Jobs",data:monthSeries.map(x=>x.jobs),borderColor:"#A7F3D0",tension:.35,pointRadius:monthSeries.length<2?4:0}
+           backgroundColor:(ctx)=>areaGradient(ctx,"rgba(96,165,250,.9)","rgba(96,165,250,.05)"),
+           pointRadius:monthSeries.length<2?4:0,pointHoverRadius:5},
+          {label:"Jobs",data:monthSeries.map(x=>x.jobs),borderColor:"#A7F3D0",
+           pointRadius:monthSeries.length<2?4:0}
         ]},
       options:{...common,spanGaps:true}
     });
 
-    // Spend by Category — красивое “выкручивание”
-    const catChart = new Chart(document.getElementById('chart-cat'),{
+    /* Spend by Category — плавное «выкручивание» + масштаб */
+    new Chart(document.getElementById('chart-cat'),{
       type:"doughnut",
-      data:{labels:catSeries.map(x=>x.label),datasets:[{data:catSeries.map(x=>x.value),borderWidth:0,backgroundColor:catSeries.map((_,i)=>`hsl(${200+i*14} 80% 60%)`)}]},
-      options:{
-        ...common,scales:undefined,cutout:"62%",
-        animation:{animateRotate:true,animateScale:true,duration:1400,easing:"easeInOutCubic",
-          delay:(ctx)=>ctx.type==='data' ? ctx.dataIndex*60 : 0}
-      }
+      data:{labels:catSeries.map(x=>x.label),
+            datasets:[{data:catSeries.map(x=>x.value),borderWidth:0,
+                       backgroundColor:catSeries.map((_,i)=>`hsl(${200+i*14} 80% 60%)`)}]},
+      options:{...common,scales:undefined,cutout:"62%",
+        animation:{animateRotate:!reduced,animateScale:!reduced,duration:1200,easing:"easeInOutCubic",
+          delay:(ctx)=>ctx.type==='data'? ctx.dataIndex*60 : 0}}
     });
+    // запускаем CSS-спин контейнера пончика
+    const catSpin=document.getElementById('cat-spin'); requestAnimationFrame(()=>catSpin.classList.add('ready'));
 
-    // Vendors
+    /* Vendors */
     new Chart(document.getElementById('chart-vendor'),{
       type:"line",
-      data:{labels:vendorSeries.map(x=>x.label),datasets:[{label:"Spend",data:vendorSeries.map(x=>x.value),borderColor:"#7DD3FC",tension:.35,pointRadius:3}]},
+      data:{labels:vendorSeries.map(x=>x.label),
+            datasets:[{label:"Spend",data:vendorSeries.map(x=>x.value),borderColor:"#7DD3FC",pointRadius:3}]},
       options:common
     });
 
-    // Units
+    /* Units */
     new Chart(document.getElementById('chart-unit'),{
       type:"bar",
-      data:{labels:unitSeries.map(x=>x.label),datasets:[{label:"Breakdowns",data:unitSeries.map(x=>x.value),backgroundColor:"#93C5FD",borderRadius:10}]},
+      data:{labels:unitSeries.map(x=>x.label),
+            datasets:[{label:"Breakdowns",data:unitSeries.map(x=>x.value),backgroundColor:"#93C5FD",borderRadius:10}]},
       options:common
     });
 
-    // Таблицы
+    /* Таблицы */
     const drawT=(id,list)=>{
       const el=document.getElementById(id);
       el.innerHTML=list.length? list.map(r=>`
-        <tr class="hover:bg-white/5">
+        <tr class="hover:bg-white/5 transition-colors">
           <td class="pr-4 py-2">${r["Date"]||""}</td>
           <td class="pr-4 py-2">${r["Unit"]||""}</td>
           <td class="pr-4 py-2">${r["Category"]||""}</td>
@@ -256,6 +341,7 @@ function timeout(ms){return new Promise((_,rej)=>setTimeout(()=>rej(new Error("N
 
     status.classList.add("hidden");
     content.classList.remove("hidden");
+
   }catch(err){
     console.error(err);
     const s=document.getElementById('status');
