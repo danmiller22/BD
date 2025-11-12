@@ -79,8 +79,8 @@
       </div>
 
       <div class="glass card reveal" style="animation-delay:300ms">
-        <div class="mb-4 text-lg">Monthly Spend</div>
-        <div class="chart-wrap"><canvas id="chart-month"></canvas></div>
+        <div class="mb-4 text-lg">Daily Spend</div>
+        <div class="chart-wrap"><canvas id="chart-day"></canvas></div>
       </div>
 
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -144,8 +144,7 @@ const SHEET_GID="1435752205";
 const money=n=>new Intl.NumberFormat(undefined,{style:"currency",currency:"USD"}).format(n||0);
 const parseMoney=v=>{if(v==null)return 0; const t=String(v).replace(/[^0-9.\-]/g,""); const n=parseFloat(t); return isNaN(n)?0:n;};
 const parseMs=v=>{const t=Date.parse(v); return Number.isFinite(t)?t:0;};
-const toISODate=(v)=>{const d=new Date(v); if(!Number.isFinite(d.getTime())) return String(v||""); const y=d.getFullYear(); const m=String(d.getMonth()+1).padStart(2,"0"); const day=String(d.getDate()).padStart(2,"0"); return `${y}-${m}-${day}`;};
-const monthKeyISO=(v)=>{const d=new Date(v); if(!Number.isFinite(d.getTime())) return "Unknown"; const y=d.getFullYear(); const m=String(d.getMonth()+1).padStart(2,"0"); return `${y}-${m}`;};
+const toISODate=v=>{const d=new Date(v); if(!Number.isFinite(d.getTime())) return String(v||""); const y=d.getFullYear(); const m=String(d.getMonth()+1).padStart(2,"0"); const day=String(d.getDate()).padStart(2,"0"); return `${y}-${m}-${day}`;};
 
 function revealAll(){ document.querySelectorAll('.reveal').forEach(el=>el.classList.add('show')); }
 document.addEventListener('DOMContentLoaded', revealAll);
@@ -196,12 +195,14 @@ async function fetchCSV(){
 
     const totalSpend=meaningful.reduce((a,r)=>a+parseMoney(r["Total"]),0);
 
-    const byMonth=new Map();
+    // === DAILY series (YYYY-MM-DD) ===
+    const byDay=new Map();
     meaningful.forEach(r=>{
-      const k=monthKeyISO(r["Date"]); if(k==="Unknown") return;
-      const cur=byMonth.get(k)||{spend:0,count:0}; cur.spend+=parseMoney(r["Total"]); cur.count++; byMonth.set(k,cur);
+      const k=toISODate(r["Date"]); if(!k || k==="Invalid Date") return;
+      const cur=byDay.get(k)||{spend:0,count:0};
+      cur.spend+=parseMoney(r["Total"]); cur.count++; byDay.set(k,cur);
     });
-    const monthSeries=[...byMonth.entries()].sort((a,b)=>a[0].localeCompare(b[0]))
+    const daySeries=[...byDay.entries()].sort((a,b)=>a[0].localeCompare(b[0]))
       .map(([k,v])=>({label:k,spend:+v.spend.toFixed(2),jobs:v.count}));
 
     const byCat={}; meaningful.forEach(r=>{const c=r["Category"]||"Uncategorized"; byCat[c]=(byCat[c]||0)+parseMoney(r["Total"]);});
@@ -232,19 +233,20 @@ async function fetchCSV(){
       responsive:true,maintainAspectRatio:false,resizeDelay:150,
       animation:{duration:baseAnim,easing:"easeOutCubic"},
       plugins:{legend:{labels:{color:"#E5E7EB"}},tooltip:{backgroundColor:"rgba(12,16,27,.95)",padding:12,titleColor:"#E5E7EB",bodyColor:"#E5E7EB",borderWidth:0}},
-      scales:{x:{grid:{color:"var(--grid)"},ticks:{color:"#D1D5DB"}},
+      scales:{x:{grid:{color:"var(--grid)"},ticks:{color:"#D1D5DB",maxRotation:0,minRotation:0,autoSkip:true,maxTicksLimit:7}},
               y:{beginAtZero:true,grid:{color:"var(--grid)"},ticks:{color:"#D1D5DB"}}}
     };
 
-    new Chart(document.getElementById('chart-month'),{
+    // Daily line
+    new Chart(document.getElementById('chart-day'),{
       type:"line",
-      data:{labels:monthSeries.map(x=>x.label),
+      data:{labels:daySeries.map(x=>x.label),
         datasets:[
-          {label:"Spend",data:monthSeries.map(x=>x.spend),borderColor:"#93C5FD",fill:true,
+          {label:"Spend",data:daySeries.map(x=>x.spend),borderColor:"#93C5FD",fill:true,
            backgroundColor:(ctx)=>areaGradient(ctx,"rgba(96,165,250,.9)","rgba(96,165,250,.05)"),
-           pointRadius:monthSeries.length<2?4:0,pointHoverRadius:5},
-          {label:"Jobs",data:monthSeries.map(x=>x.jobs),borderColor:"#A7F3D0",
-           pointRadius:monthSeries.length<2?4:0}
+           pointRadius:daySeries.length<2?4:0,pointHoverRadius:5},
+          {label:"Jobs",data:daySeries.map(x=>x.jobs),borderColor:"#A7F3D0",
+           pointRadius:daySeries.length<2?4:0}
         ]},
       options:{...common,spanGaps:true}
     });
