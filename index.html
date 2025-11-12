@@ -79,8 +79,8 @@
       </div>
 
       <div class="glass card reveal" style="animation-delay:300ms">
-        <div class="mb-4 text-lg">Daily Spend</div>
-        <div class="chart-wrap"><canvas id="chart-day"></canvas></div>
+        <div class="mb-4 text-lg">Monthly Spend</div>
+        <div class="chart-wrap"><canvas id="chart-month"></canvas></div>
       </div>
 
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -195,7 +195,7 @@ async function fetchCSV(){
 
     const totalSpend=meaningful.reduce((a,r)=>a+parseMoney(r["Total"]),0);
 
-    // === DAILY series (YYYY-MM-DD) ===
+    /* DAILY series for Monthly Spend (YYYY-MM-DD on X-axis) */
     const byDay=new Map();
     meaningful.forEach(r=>{
       const k=toISODate(r["Date"]); if(!k || k==="Invalid Date") return;
@@ -233,12 +233,12 @@ async function fetchCSV(){
       responsive:true,maintainAspectRatio:false,resizeDelay:150,
       animation:{duration:baseAnim,easing:"easeOutCubic"},
       plugins:{legend:{labels:{color:"#E5E7EB"}},tooltip:{backgroundColor:"rgba(12,16,27,.95)",padding:12,titleColor:"#E5E7EB",bodyColor:"#E5E7EB",borderWidth:0}},
-      scales:{x:{grid:{color:"var(--grid)"},ticks:{color:"#D1D5DB",maxRotation:0,minRotation:0,autoSkip:true,maxTicksLimit:7}},
+      scales:{x:{grid:{color:"var(--grid)"},ticks:{color:"#D1D5DB",maxRotation:0,minRotation:0,autoSkip:true,maxTicksLimit:8}},
               y:{beginAtZero:true,grid:{color:"var(--grid)"},ticks:{color:"#D1D5DB"}}}
     };
 
-    // Daily line
-    new Chart(document.getElementById('chart-day'),{
+    /* Monthly Spend (daily granularity) */
+    new Chart(document.getElementById('chart-month'),{
       type:"line",
       data:{labels:daySeries.map(x=>x.label),
         datasets:[
